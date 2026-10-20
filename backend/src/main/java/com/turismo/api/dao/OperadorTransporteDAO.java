@@ -1,0 +1,65 @@
+package com.turismo.api.dao;
+
+import com.turismo.api.model.OperadorTransporte;
+import com.turismo.api.util.ConnectionProvider;
+
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.List;
+
+/**
+ * Data Access Object for OperadorTransporte entity (chave composta operador + transporte)
+ */
+public class OperadorTransporteDAO extends BaseDAO {
+
+    private static final String SELECT =
+            "SELECT ot.ID_OPERADOR, ot.ID_TRANSPORTE, o.NOME_OPERADOR, tr.TIPO_TRANSPORTE "
+                    + "FROM OPERADOR_TRANSPORTE ot "
+                    + "JOIN OPERADOR o ON o.ID_OPERADOR = ot.ID_OPERADOR "
+                    + "JOIN TRANSPORTE tr ON tr.ID_TRANSPORTE = ot.ID_TRANSPORTE";
+    private static final String ORDER = " ORDER BY ot.ID_OPERADOR, ot.ID_TRANSPORTE";
+
+    public OperadorTransporteDAO() {
+    }
+
+    public OperadorTransporteDAO(ConnectionProvider connections) {
+        super(connections);
+    }
+
+    public List<OperadorTransporte> getAllOperadorTransportes() throws SQLException {
+        return query(SELECT + ORDER, OperadorTransporteDAO::map);
+    }
+
+    public List<OperadorTransporte> getOperadorTransportesByOperador(String idOperador) throws SQLException {
+        return query(SELECT + " WHERE ot.ID_OPERADOR = ?" + ORDER, OperadorTransporteDAO::map, idOperador);
+    }
+
+    public List<OperadorTransporte> getOperadorTransportesByTransporte(String idTransporte) throws SQLException {
+        return query(SELECT + " WHERE ot.ID_TRANSPORTE = ?" + ORDER, OperadorTransporteDAO::map, idTransporte);
+    }
+
+    public OperadorTransporte getOperadorTransporte(String idOperador, String idTransporte) throws SQLException {
+        return queryOne(SELECT + " WHERE ot.ID_OPERADOR = ? AND ot.ID_TRANSPORTE = ?", OperadorTransporteDAO::map,
+                idOperador, idTransporte);
+    }
+
+    /** Usa a procedure associar_operador_transporte. */
+    public String addOperadorTransporte(OperadorTransporte ot) throws SQLException {
+        try (Connection c = connections.get()) {
+            return PlSqlOutput.callProcedure(c, "associar_operador_transporte", ot.getIdOperador(), ot.getIdTransporte());
+        }
+    }
+
+    public boolean deleteOperadorTransporte(String idOperador, String idTransporte) throws SQLException {
+        return update("DELETE FROM OPERADOR_TRANSPORTE WHERE ID_OPERADOR = ? AND ID_TRANSPORTE = ?",
+                idOperador, idTransporte) > 0;
+    }
+
+    private static OperadorTransporte map(ResultSet rs) throws SQLException {
+        OperadorTransporte ot = new OperadorTransporte(rs.getString("ID_OPERADOR"), rs.getString("ID_TRANSPORTE"));
+        ot.setNomeOperador(rs.getString("NOME_OPERADOR"));
+        ot.setTipoTransporte(rs.getString("TIPO_TRANSPORTE"));
+        return ot;
+    }
+}

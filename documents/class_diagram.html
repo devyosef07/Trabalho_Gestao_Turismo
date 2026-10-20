@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagrama de Classes - Sistema de Gestão de Turismo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        .diagram-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            overflow: auto;
+        }
+        svg {
+            border: 1px solid #ddd;
+        }
+        .entity {
+            fill: #fff;
+            stroke: #3498db;
+            stroke-width: 2;
+            rx: 10;
+            ry: 10;
+        }
+        .entity-title {
+            fill: #2c3e50;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .entity-attr {
+            fill: #34495e;
+            font-size: 12px;
+        }
+        .relationship-label {
+            fill: #e74c3c;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .relationship-line {
+            stroke: #95a5a6;
+            stroke-width: 2;
+            fill: none;
+        }
+        .relationship-diamond {
+            fill: #95a5a6;
+            stroke: #7f8c8d;
+            stroke-width: 1;
+        }
+        .legend {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            font-size: 12px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Diagrama de Classes - Sistema de Gestão de Turismo</h1>
+    <div class="diagram-container">
+        <svg width="2000" height="1800" viewBox="-210 -780 2000 1800" xmlns="http://www.w3.org/2000/svg">
+            <!-- Entities -->
+            <!-- Atracao -->
+            <rect class="entity" x="440" y="-60" width="200" height="180"/>
+            <text class="entity-title" x="540" y="-40">Atracao</text>
+            <text class="entity-attr" x="450" y="-20">ID_atracao (PK)</text>
+            <text class="entity-attr" x="450" y="0">tipo_atracao</text>
+            <text class="entity-attr" x="450" y="20">descricao</text>
+            <text class="entity-attr" x="450" y="40">hora_abertura</text>
+            <text class="entity-attr" x="450" y="60">hora_fecho</text>
+            <text class="entity-attr" x="450" y="80">hora_abertura_especial</text>
+            <text class="entity-attr" x="450" y="100">hora_fecho_especial</text>
+            <text class="entity-attr" x="450" y="120">detalhes_horario_especial</text>
+            <text class="entity-attr" x="450" y="140">ID_destino (FK)</text>
+
+            <!-- Destino -->
+            <rect class="entity" x="440" y="340" width="200" height="120"/>
+            <text class="entity-title" x="540" y="360">Destino</text>
+            <text class="entity-attr" x="450" y="380">ID_destino (PK)</text>
+            <text class="entity-attr" x="450" y="400">nome_destino</text>
+            <text class="entity-attr" x="450" y="420">regiao</text>
+            <text class="entity-attr" x="450" y="440">capacidade_visitantes</text>
+
+            <!-- Alojamento -->
+            <rect class="entity" x="440" y="660" width="200" height="120"/>
+            <text class="entity-title" x="540" y="680">Alojamento</text>
+            <text class="entity-attr" x="450" y="700">ID_alojamento (PK)</text>
+            <text class="entity-attr" x="450" y="720">nome_alojamento</text>
+            <text class="entity-attr" x="450" y="740">class_alojamento</text>
+            <text class="entity-attr" x="450" y="760">tipo_alojamento (FK)</text>
+            <text class="entity-attr" x="450" y="780">ID_destino (FK)</text>
+
+            <!-- Turista -->
+            <rect class="entity" x="1320" y="360" width="200" height="80"/>
+            <text class="entity-title" x="1420" y="380">Turista</text>
+            <text class="entity-attr" x="1330" y="400">ID_turista (PK)</text>
+            <text class="entity-attr" x="1330" y="420">nome_turista</text>
+            <text class="entity-attr" x="1330" y="440">nacionalidade</text>
+
+            <!-- Turista_Preferencia -->
+            <rect class="entity" x="1760" y="360" width="200" height="80"/>
+            <text class="entity-title" x="1860" y="380">Turista_Preferencia</text>
+            <text class="entity-attr" x="1770" y="400">ID_turista (PK, FK)</text>
+            <text class="entity-attr" x="1770" y="420">preferencia (PK)</text>
+
+            <!-- Reserva -->
+            <rect class="entity" x="1320" y="660" width="200" height="120"/>
+            <text class="entity-title" x="1420" y="680">Reserva</text>
+            <text class="entity-attr" x="1330" y="700">ID_reserva (PK)</text>
+            <text class="entity-attr" x="1330" y="720">data_chegada</text>
+            <text class="entity-attr" x="1330" y="740">data_partida</text>
+            <text class="entity-attr" x="1330" y="760">status_reserva</text>
+            <text class="entity-attr" x="1330" y="780">ID_turista (FK)</text>
+
+            <!-- Pagamento -->
+            <rect class="entity" x="1760" y="640" width="200" height="160"/>
+            <text class="entity-title" x="1860" y="660">Pagamento</text>
+            <text class="entity-attr" x="1770" y="680">ID_pagamento (PK)</text>
+            <text class="entity-attr" x="1770" y="700">valor</text>
+            <text class="entity-attr" x="1770" y="720">data_pagamento</text>
+            <text class="entity-attr" x="1770" y="740">metodo_pagamento</text>
+            <text class="entity-attr" x="1770" y="760">status_pagamento</text>
+            <text class="entity-attr" x="1770" y="780">ID_recibo (UNIQUE)</text>
+            <text class="entity-attr" x="1770" y="800">detalhes_transacao</text>
+            <text class="entity-attr" x="1770" y="820">ID_reserva (FK)</text>
+
+            <!-- Operador -->
+            <rect class="entity" x="50" y="-210" width="200" height="100"/>
+            <text class="entity-title" x="150" y="-190">Operador</text>
+            <text class="entity-attr" x="60" y="-170">ID_operador (PK)</text>
+            <text class="entity-attr" x="60" y="-150">nome_operador</text>
+            <text class="entity-attr" x="60" y="-130">especialidade</text>
+            <text class="entity-attr" x="60" y="-110">class_operador</text>
+
+            <!-- Transporte -->
+            <rect class="entity" x="50" y="-780" width="200" height="100"/>
+            <text class="entity-title" x="150" y="-760">Transporte</text>
+            <text class="entity-attr" x="60" y="-760">ID_transporte (PK)</text>
+            <text class="entity-attr" x="60" y="-740">tipo_transporte</text>
+            <text class="entity-attr" x="60" y="-720">cap_transporte</text>
+            <text class="entity-attr" x="60" y="-700">disponibilidade</text>
+
+            <!-- Turista_Destino -->
+            <rect class="entity" x="880" y="350" width="200" height="100"/>
+            <text class="entity-title" x="980" y="370">Turista_Destino</text>
+            <text class="entity-attr" x="890" y="390">ID_destino (PK, FK)</text>
+            <text class="entity-attr" x="890" y="410">ID_turista (PK, FK)</text>
+            <text class="entity-attr" x="890" y="430">data_visita (PK)</text>
+
+            <!-- Reserva_Alojamento -->
+            <rect class="entity" x="880" y="670" width="200" height="100"/>
+            <text class="entity-title" x="980" y="690">Reserva_Alojamento</text>
+            <text class="entity-attr" x="890" y="710">ID_alojamento (PK, FK)</text>
+            <text class="entity-attr" x="890" y="730">ID_reserva (PK, FK)</text>
+            <text class="entity-attr" x="890" y="750">avaliacao_alojamento</text>
+
+            <!-- Operador_Turista -->
+            <rect class="entity" x="1320" y="-205" width="200" height="90"/>
+            <text class="entity-title" x="1420" y="-185">Operador_Turista</text>
+            <text class="entity-attr" x="1330" y="-165">ID_operador (PK, FK)</text>
+            <text class="entity-attr" x="1330" y="-145">ID_turista (PK, FK)</text>
+            <text class="entity-attr" x="1330" y="-125">avaliacao_operador</text>
+
+            <!-- Operador_Transporte -->
+            <rect class="entity" x="50" y="-480" width="200" height="80"/>
+            <text class="entity-title" x="150" y="-460">Operador_Transporte</text>
+            <text class="entity-attr" x="60" y="-440">ID_operador (PK, FK)</text>
+            <text class="entity-attr" x="60" y="-420">ID_transporte (PK, FK)</text>
+
+            <!-- Operador_Alojamento -->
+            <rect class="entity" x="680" y="680" width="200" height="80"/>
+            <text class="entity-title" x="780" y="700">Operador_Alojamento</text>
+            <text class="entity-attr" x="690" y="700">ID_operador (PK, FK)</text>
+            <text class="entity-attr" x="690" y="720">ID_alojamento (PK, FK)</text>
+
+            <!-- Tipo_Alojamento -->
+            <rect class="entity" x="440" y="980" width="200" height="70"/>
+            <text class="entity-title" x="540" y="1000">Tipo_Alojamento</text>
+            <text class="entity-attr" x="450" y="1020">tipo_alojamento (PK)</text>
+            <text class="entity-attr" x="450" y="1040">cap_alojamento</text>
+
+            <!-- Relationships -->
+            <!-- oferece: Destino (1) - Atracao (N) -->
+            <line class="relationship-line" x1="540" y1="400" x2="540" y2="60"/>
+            <text class="relationship-label" x="500" y="230">oferece</text>
+            <text class="relationship-label" x="560" y="40">1</text>
+            <text class="relationship-label" x="560" y="240">N</text>
+
+            <!-- possui: Destino (1) - Alojamento (N) -->
+            <line class="relationship-line" x1="540" y1="460" x2="540" y2="720"/>
+            <text class="relationship-label" x="500" y="590">possui</text>
+            <text class="relationship-label" x="560" y="460">1</text>
+            <text class="relationship-label" x="560" y="720">N</text>
+
+            <!-- caracteriza: Tipo_Alojamento (1) - Alojamento (N) -->
+            <line class="relationship-line" x1="540" y1="1050" x2="540" y2="720"/>
+            <text class="relationship-label" x="500" y="885">caracteriza</text>
+            <text class="relationship-label" x="560" y="1050">1</text>
+            <text class="relationship-label" x="560" y="720">N</text>
+
+            <!-- efectua: Turista (1) - Reserva (N) -->
+            <line class="relationship-line" x1="1420" y1="440" x2="1420" y2="720"/>
+            <text class="relationship-label" x="1450" y="580">efectua</text>
+            <text class="relationship-label" x="1400" y="440">1</text>
+            <text class="relationship-label" x="1400" y="720">N</text>
+
+            <!-- tem: Turista (1) - Turista_Preferencia (N) -->
+            <line class="relationship-line" x1="1420" y1="440" x2="1860" y2="400"/>
+            <text class="relationship-label" x="1620" y="420">tem</text>
+            <text class="relationship-label" x="1400" y="440">1</text>
+            <text class="relationship-label" x="1880" y="400">N</text>
+
+            <!-- gera: Reserva (1) - Pagamento (N) -->
+            <line class="relationship-line" x1="1420" y1="780" x2="1860" y2="740"/>
+            <text class="relationship-label" x="1520" y="760">gera</text>
+            <text class="relationship-label" x="1400" y="780">1</text>
+            <text class="relationship-label" x="1880" y="740">N</text>
+
+            <!-- é visitado: Destino (1) - Turista_Destino (N) -->
+            <line class="relationship-line" x1="540" y1="410" x2="980" y2="400"/>
+            <text class="relationship-label" x="460" y="405">é visitado</text>
+            <text class="relationship-label" x="560" y="410">1</text>
+            <text class="relationship-label" x="1000" y="400">N</text>
+
+            <!-- realiza: Turista (1) - Turista_Destino (N) -->
+            <line class="relationship-line" x1="1420" y1="440" x2="980" y2="440"/>
+            <text class="relationship-label" x="1520" y="440">realiza</text>
+            <text class="relationship-label" x="1400" y="440">1</text>
+            <text class="relationship-label" x="1000" y="440">N</text>
+
+            <!-- é alocado: Alojamento (1) - Reserva_Alojamento (N) -->
+            <line class="relationship-line" x1="540" y1="740" x2="980" y2="720"/>
+            <text class="relationship-label" x="460" y="730">é alocado</text>
+            <text class="relationship-label" x="560" y="740">1</text>
+            <text class="relationship-label" x="1000" y="720">N</text>
+
+            <!-- inclui: Reserva (1) - Reserva_Alojamento (N) -->
+            <line class="relationship-line" x1="1420" y1="780" x2="980" y2="780"/>
+            <text class="relationship-label" x="1460" y="780">inclui</text>
+            <text class="relationship-label" x="1400" y="780">1</text>
+            <text class="relationship-label" x="1000" y="780">N</text>
+
+            <!-- é fornecido: Alojamento (1) - Operador_Alojamento (N) -->
+            <line class="relationship-line" x1="540" y1="740" x2="780" y2="740"/>
+            <text class="relationship-label" x="460" y="730">é fornecido</text>
+            <text class="relationship-label" x="560" y="740">1</text>
+            <text class="relationship-label" x="800" y="740">N</text>
+
+            <!-- ministra: Operador (1) - Operador_Alojamento (N) -->
+            <line class="relationship-line" x1="150" y1="-130" x2="780" y2="740"/>
+            <text class="relationship-label" x="200" y1="-60">ministra</text>
+            <text class="relationship-label" x="130" y1="-130">1</text>
+            <text class="relationship-label" x="800" y1="-130">N</text>
+
+            <!-- gerencia: Operador (1) - Operador_Transporte (N) -->
+            <line class="relationship-line" x1="150" y1="-130" x2="150" y2="-460"/>
+            <text class="relationship-label" x="200" y1="-100">gerencia</text>
+            <text class="relationship-label" x="130" y1="-130">1</text>
+            <text class="relationship-label" x="170" y1="-460">N</text>
+
+            <!-- é disponibilizado: Transporte (1) - Operador_Transporte (N) -->
+            <line class="relationship-line" x1="150" y1="-760" x2="150" y2="-480"/>
+            <text class="relationship-label" x="200" y1="-690">é disponibilizado</text>
+            <text class="relationship-label" x="130" y1="-760">1</text>
+            <text class="relationship-label" x="170" y1="-480">N</text>
+
+            <!-- coordena: Operador (1) - Operador_Turista (N) -->
+            <line class="relationship-line" x1="150" y1="-130" x2="1420" y2="-205"/>
+            <text class="relationship-label" x="200" y1="-100">coordena</text>
+            <text class="relationship-label" x="130" y1="-130">1</text>
+            <text class="relationship-label" x="1440" y1="-205">N</text>
+
+            <!-- é acompanhado: Turista (1) - Operador_Turista (N) -->
+            <line class="relationship-line" x1="1420" y1="440" x2="1420" y2="-205"/>
+            <text class="relationship-label" x="1520" y="440">é acompanhado</text>
+            <text class="relationship-label" x="1400" y="440">1</text>
+            <text class="relationship-label" x="1440" y1="-205">N</text>
+        </svg>
+    </div>
+    <div class="legend">
+        <div class="legend-item">
+            <div class="legend-color" style="background: #fff; border: 2px solid #3498db;"></div>
+            Entidade Forte
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #fff; border: 4px solid #3498db;"></div>
+            Entidade Fraca
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #3498db;"></div>
+            Entidade Associativa (N:M)
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #95a5a6;"></div>
+            Relacionamento
+        </div>
+    </div>
+</body>
+</html>

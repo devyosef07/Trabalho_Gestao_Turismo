@@ -1,0 +1,3 @@
+# Copie para turismo.local.properties (não é versionado) se preferir não usar
+# a variável de ambiente TURISMO_DB_PASSWORD.
+db.password=

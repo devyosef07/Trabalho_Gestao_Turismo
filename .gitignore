@@ -1,0 +1,9 @@
+target/
+out/
+*.class
+config/turismo.local.properties
+.idea/
+.vscode/
+*.iml
+.DS_Store
+backend/server.log

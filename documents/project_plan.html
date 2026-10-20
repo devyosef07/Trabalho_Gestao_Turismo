@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plano do Projeto - Trabalho de Turismo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        h1 {
+            text-align: center;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .phase {
+            background: #f8f9fa;
+            margin: 20px 0;
+            padding: 20px;
+            border-left: 4px solid #3498db;
+            border-radius: 0 5px 5px 0;
+        }
+        .phase-number {
+            display: inline-block;
+            background: #3498db;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            margin-right: 15px;
+            font-weight: bold;
+        }
+        .class-diagram {
+            background: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .validation-section {
+            background: #e8f8f5;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #27ae60;
+        }
+        .deadline {
+            background: #fadbd8;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin-bottom: 10px;
+        }
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .tech-item {
+            background: #3498db;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.9em;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Plano do Projeto - Sistema de Gestão de Turismo</h1>
+
+        <div class="deadline">
+            <strong>Data de entrega:</strong> 25 de Outubro de 2026
+        </div>
+
+        <h2>Visão Geral do Projeto</h2>
+        <p>Este documento descreve o plano detalhado para o desenvolvimento de um sistema de gestão de turismo utilizando Flutter para o frontend e Oracle 10g como banco de dados backend, executado em um ambiente CentOS 6.8. O sistema permitirá gerenciamento de pacotes turísticos, reservas, clientes e relatórios.</p>
+
+        <h2>Tecnologias Utilizadas</h2>
+        <div class="tech-stack">
+            <span class="tech-item">Flutter (Frontend)</span>
+            <span class="tech-item">Oracle 10g (Backend Database)</span>
+            <span class="tech-item">CentOS 6.8 (Servidor)</span>
+            <span class="tech-item">SQL/PL/SQL (Queries e Procedures)</span>
+            <span class="tech-item">RESTful API (Comunicação)</span>
+            <span class="tech-item">Git (Controle de Versão)</span>
+        </div>
+
+        <h2>Fases do Projeto</h2>
+
+        <div class="phase">
+            <span class="phase-number">1</span>
+            <h3>Análise e Planejamento (Semana 1-2)</h3>
+            <p><strong>Objetivo:</strong> Definir requisitos, modelar o banco de dados e estabelecer a arquitetura do sistema.</p>
+            <ul>
+                <li>Reunião de levantamento de requisitos com stakeholders</li>
+                <li>Modelagem conceitual e lógica do banco de dados Oracle</li>
+                <li>Definição das APIs REST para comunicação Flutter-Oracle</li>
+                <li>Planejamento da estrutura de pastas do projeto Flutter</li>
+                <li>Configuração do ambiente de desenvolvimento (Flutter SDK, Oracle Client)</li>
+                <li>Criação do repositório Git inicial</li>
+            </ul>
+            <p><strong>Entregáveis:</strong> Documento de requisitos, modelo ER do banco, especificação da API.</p>
+        </div>
+
+        <div class="phase">
+            <span class="phase-number">2</span>
+            <h3>Configuração do Ambiente e Banco de Dados (Semana 2-3)</h3>
+            <p><strong>Objetivo:</strong> Preparar o servidor CentOS com Oracle 10g e configurar a conectividade inicial.</p>
+            <ul>
+                <li>Instalação e configuração do Oracle 10g no CentOS 6.8</li>
+                <li>Criação das tabelas conforme modelo ER definido</li>
+                <li>Implementação de procedures e funções PL/SQL necessárias</li>
+                <li>Configuração de usuários e permissões no Oracle</li>
+                <li>Teste de conectividade básica com SQL*Plus e SQL Developer</li>
+                <li>Criação de scripts de backup e recuperação inicial</li>
+            </ul>
+            <p><strong>Entregáveis:</strong> Banco de dados funcional, scripts de criação, documentação de configuração.</p>
+        </div>
+
+        <div class="phase">
+            <span class="phase-number">3</span>
+            <h3>Desenvolvimento do Backend (Semana 3-5)</h3>
+            <p><strong>Objetivo:</strong> Criar a camada de serviço que expõe os dados do Oracle via API REST.</p>
+            <ul>
+                <li>Desenvolvimento de endpoints REST para CRUD de entidades principais</li>
+                <li>Implementação de validações de negócio nas camadas de serviço</li>
+                <li>Criação de mecanismos de autenticação e autorização (se necessário)</li>
+                <li>Otimização de queries PL/SQL para performance</li>
+                <li>Implementação de tratamento de erros e logging</li>
+                <li>Testes unitários e de integração das APIs</li>
+                <li>Documentação da API (Swagger/OpenAPI ou similar)</p>
+            </ul>
+            <p><strong>Entregáveis:</strong> API REST funcional, testes automatizados, documentação da API.</p>
+        </div>
+
+        <div class="phase">
+            <span class="phase-number">4</span>
+            <h3>Desenvolvimento do Frontend Flutter (Semana 4-7)</h3>
+            <p><strong>Objetivo:</strong> Construir a interface móvel/web consumindo as APIs desenvolvidas.</p>
+            <ul>
+                <li>Criação da estrutura básica do projeto Flutter (navigation, state management)</li>
+                <li>Desenvolvimento de telas de autenticação (login, registro)</li>
+                <li>Implementação de módulos: Pacotes Turísticos, Reservas, Clientes, Relatórios</li>
+                <li>Integração com as APIs REST via HTTP client (dio ou http)</li>
+                <li>Implementação de tratamento de loading, erros e estados vazios</li>
+                <li>Adaptação responsiva para diferentes tamanhos de tela</li>
+                <li>Implementação de funcionalidades offline básicas (se necessário)</li>
+                <li>Testes de usabilidade e ajustes de UI/UX</li>
+            </ul>
+            <p><strong>Entregáveis:</strong> Aplicativo Flutter funcional conectado à API.</p>
+        </div>
+
+        <div class="phase">
+            <span class="phase-number">5</span>
+            <h3>Testes, Validação e Ajustes Finais (Semana 7-8)</h3>
+            <p><strong>Objetivo:</strong> Garantir que o sistema funcione corretamente em todos os cenários e esteja pronto para entrega.</p>
+            <ul>
+                <li>Testes funcionais completos (fluxos de reserva, consulta, etc.)</li>
+                <li>Testes de performance e carga básica</li>
+                <li>Validação de integridade dos dados no Oracle</li>
+                <li>Testes de segurança básica (injeção SQL, validação de entrada)</li>
+                <li>Ajustes de UI/UX baseado nos testes</li>
+                <li>Otimização de queries e endpoints lentos</li>
+                <li>Documentação final do sistema (manual do usuário, guia de instalação)</li>
+                <li>Preparação do pacote final para entrega</li>
+            </ul>
+            <p><strong>Entregáveis:</strong> Sistema testado e validado, documentação completa, código fonte final.</p>
+        </div>
+
+        <h2>Diagrama de Classes (Modelo Conceitual)</h2>
+        <div class="class-diagram">
+            <h3>Entidades Principais do Sistema</h3>
+            <p>O diagrama abaixo representa as principais classes/entities do sistema de gestão de turismo:</p>
+
+            <!-- Using SVG for class diagram -->
+            <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg" style="border: 1px solid #ccc;">
+                <!-- Cliente -->
+                <rect x="50" y="50" width="180" height="100" fill="#fff" stroke="#3498db" stroke-width="2" rx="10"/>
+                <text x="140" y="30" text-anchor="middle" font-weight="bold" fill="#2c3e50">Cliente</text>
+                <text x="140" y="55" text-anchor="middle">- idCliente: Number</text>
+                <text x="140" y="75" text-anchor="middle">- nome: String</text>
+                <text x="140" y="95" text-anchor="middle">- email: String</text>
+                <text x="140" y="115" text-anchor="middle">- telefone: String</text>
+                <text x="140" y="135" text-anchor="middle">- endereco: String</text>
+
+                <!-- PacoteTuristico -->
+                <rect x="300" y="50" width="180" height="100" fill="#fff" stroke="#3498db" stroke-width="2" rx="10"/>
+                <text x="390" y="30" text-anchor="middle" font-weight="bold" fill="#2c3e50">PacoteTuristico</text>
+                <text x="390" y="55" text-anchor="middle">- idPacote: Number</text>
+                <text x="390" y="75" text-anchor="middle">- destino: String</text>
+                <text x="390" y="95" text-anchor="middle">- preco: Number</text>
+                <text x="390" y="115" text-anchor="middle">- dataInicio: Date</text>
+                <text x="390" y="135" text-anchor="middle">- dataFim: Date</text>
+
+                <!-- Reserva -->
+                <rect x="175" y="200" width="180" height="100" fill="#fff" stroke="#3498db" stroke-width="2" rx="10"/>
+                <text x="265" y="180" text-anchor="middle" font-weight="bold" fill="#2c3e50">Reserva</text>
+                <text x="265" y="200" text-anchor="middle">- idReserva: Number</text>
+                <text x="265" y="220" text-anchor="middle">- dataReserva: Date</text>
+                <text x="265" y="240" text-anchor="middle">- status: String</text>
+                <text x="265" y="260" text-anchor="middle">- quantidadePessoas: Number</text>
+                <text x="265" y="280" text-anchor="middle">- valorTotal: Number</text>
+
+                <!-- Relacionamentos -->
+                <line x1="140" y1="150" x2="140" y2="200" stroke="#95a5a6" stroke-width="2" marker-end="url(#arrowhead)"/>
+                <line x1="265" y1="200" x2="265" y2="150" stroke="#95a5a6" stroke-width="2" marker-end="url(#arrowhead)"/>
+                <line x1="390" y1="150" x2="265" y2="200" stroke="#95a5a6" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+                <!-- Labels dos relacionamentos -->
+                <text x="100" y="175" font-size="10" fill="#7f8c8d">1</text>
+                <text x="225" y="175" font-size="10" fill="#7f8c8d">*</text>
+                <text x="325" y="175" font-size="10" fill="#7f8c8d">1</text>
+                <text x="225" y="225" font-size="10" fill="#7f8c8d">*</text>
+
+                <!-- Definição da seta -->
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#95a5a6"/>
+                    </marker>
+                </defs>
+
+                <!-- Legenda -->
+                <rect x="550" y="50" width="200" height="150" fill="#f8f9fa" stroke="#bdc3c7" stroke-width="1" rx="5"/>
+                <text x="650" y="30" text-anchor="middle" font-weight="bold" fill="#2c3e50">Legenda</text>
+                <text x="560" y="70" font-size="12">• 1 = Um para um</text>
+                <text x="560" y="90" font-size="12">• * = Um para muitos</text>
+                <text x="560" y="110" font-size="12">• Linha tracejada = Relacionamento</text>
+                <text x="560" y="130" font-size="12">• Setas = Cardinalidade</text>
+            </svg>
+
+            <p><strong>Descrição das Entidades:</strong></p>
+            <ul>
+                <li><strong>Cliente:</strong> Representa os usuários que fazem reservas no sistema</li>
+                <li><strong>PacoteTuristico:</strong> Pacotes de viagem oferecidos pela agência</li>
+                <li><strong>Reserva:</strong> Associa um cliente a um pacote turístico em uma data específica</li>
+            </ul>
+            <p><strong>Relacionamentos:</strong></p>
+            <ul>
+                <li>Um Cliente pode fazer muitas Reservas (1:*)</li>
+                <li>Um PacoteTuristico pode ter muitas Reservas (1:*)</li>
+                <li>Cada Reserva está associada a exatamente um Cliente e um PacoteTuristico</li>
+            </ul>
+        </div>
+
+        <h2>Guia do Projeto</h2>
+        <div class="phase">
+            <span class="phase-number">A</span>
+            <h3>Estrutura de Pastas do Projeto Flutter</h3>
+            <pre>
+lib/
+├── main.dart
+├── src/
+│   ├── api/                # Camada de comunicação com APIs
+│   │   ├── client.dart     # Configuração do HTTP client
+│   │   └── endpoints.dart  # Definição das endpoints
+│   ├── models/             # Modelos de dados (DTOs)
+│   │   ├── cliente.dart
+│   │   ├── pacote.dart
+│   │   └── reserva.dart
+│   ├── screens/            # Telas da aplicação
+│   │   ├── auth/           # Telas de autenticação
+│   │   ├── pacotes/        # Telas de pacotes turísticos
+│   │   ├── reservas/       # Telas de reservas
+│   │   └── clientes/       # Telas de gestão de clientes
+│   ├── widgets/            # Widgets reutilizáveis
+│   │   ├── custom_app_bar.dart
+│   │   ├── loading_indicator.dart
+│   │   └── error_message.dart
+│   ├── utils/              # Funções utilitárias
+│   │   ├── constants.dart
+│   │   ├── formatters.dart
+│   │   └── validators.dart
+│   └── state/              # Gerenciamento de estado (se usando Provider/Bloc/etc.)
+├── assets/
+│   ├── images/
+│   └── icons/
+└── test/
+    ├── unit/
+    └── widget/
+            </pre>
+        </div>
+
+        <div class="phase">
+            <span class="phase-number">B</span>
+            <h3>Configuração do Banco de Dados Oracle</h3>
+            <ul>
+                <li><strong>Tablespace:</strong> Criar tablespace dedicada para o projeto</li>
+                <li><strong>Usuário:</strong> Criar usuário com privilégios necessários</li>
+                <li><strong>Tabelas Principais:</strong></li>
+                <ul>
+                    <li>CLIENTES (id_cliente, nome, email, telefone, endereco, data_cadastro)</li>
+                    <li>PACOTES_TURISTICOS (id_pacote, destino, preco, data_inicio, data_fim, descricao)</li>
+                    <li>RESERVAS (id_reserva, id_cliente, id_pacote, data_reserva, status, quantidade_pessoas, valor_total)</li>
+                </ul>
+                <li><strong>Sequences:</strong> Para geração automática de IDs</li>
+                <li><strong>Triggers:</strong> Para preencher campos de auditoria (se necessário)</li>
+                <li><strong>Procedures:</strong> Para operações complexas de negócio</li>
+                <li><strong>Views:</strong> Para relatórios e consultas frequentes</li>
+            </ul>
+        </div>
+
+        <h2>Validações e Testes</h2>
+        <div class="validation-section">
+            <h3>Tipos de Validação a Serem Implementados</h3>
+
+            <h4>1. Validações de Entrada (Frontend Flutter)</h4>
+            <ul>
+                <li>Campos obrigatórios não vazios</li>
+                <li>Formato de email válido</li>
+                <li>Formato de telefone válido</li>
+                <li>Valores numéricos dentro de faixas esperadas</li>
+                <li>Datas válidas (data de início anterior à data de fim)</li>
+                <li>Prevenção de XSS em campos de texto livre</li>
+            </ul>
+
+            <h4>2. Validações de Negócio (Backend Oracle/API)</h4>
+            <ul>
+                <li>Verificação de disponibilidade de pacotes nas datas solicitadas</li>
+                <li>Validação de crédito/limite do cliente (se aplicável)</li>
+                <li>Regras de negócio específicas (ex: desconto para grupos acima de X pessoas)</li>
+                <li>Prevenção de reservas duplicadas</li>
+                <li>Validação de status de reserva (cancelado, confirmado, pendente)</li>
+                <li>Integridade referencial entre tabelas</li>
+            </ul>
+
+            <h4>3. Testes a Serem Executados</h4>
+            <ul>
+                <li><strong>Testes Unitários:</strong> Validação de funções e métodos individuais</li>
+                <li><strong>Testes de Integração:</strong> Verificação da comunicação Flutter ↔ API ↔ Oracle</li>
+                <li><strong>Testes de Sistema:</strong> Fluxos completos de uso (busca pacote → faz reserva → confirma pagamento)</li>
+                <li><strong>Testes de Performance:</strong> Tempo de resposta das APIs sob carga moderada</li>
+                <li><strong>Testes de Segurança:</strong> Tentativas de injeção SQL, acesso não autorizado</li>
+                <li><strong>Testes de Usabilidade:</strong> Feedback de usuários reais sobre a interface</li>
+            </ul>
+        </div>
+
+        <h2>Critérios de Aceitação para Entrega</h2>
+        <ul>
+            <li>✅ Sistema capaz de realizar CRUD completo em todas as entidades principais</li>
+            <li>✅ Interface Flutter responsiva e funcional em pelo menos uma plataforma (Android/iOS/Web)</li>
+            <li>✅ Banco de dados Oracle 10g corretamente populado e funcionando no CentOS 6.8</li>
+            <li>✅ API REST funcional com documentação básica</li>
+            <li>✅ Todas as validações de entrada e negócio implementadas</li>
+            <li>✅ Sistema livre de bugs críticos que impeçam o uso básico</li>
+            <li>✅ Documentação final incluíndo manual do usuário e guia de instalação</li>
+            <li>✅ Código fonte organizado e comentado adequadamente</li>
+            <li>✅ Backup do banco de dados fornecido junto com o código fonte</li>
+        </div>
+
+        <h2>Riscos Identificados e Mitigação</h2>
+        <ul>
+            <li><strong>Risco:</strong> Problemas de compatibilidade entre versões do Flutter e dependências
+                <br><strong>Mitigação:</strong> Usar versões LTS estáveis e testar em dispositivo real semanalmente</li>
+            <li><strong>Risco:</strong> Complexidade na configuração do Oracle 10g no CentOS 6.8 (versão antiga)
+                <br><strong>Mitigação:</strong> Documentar cada passo da instalação e usar imagens de máquina virtual prontas quando possível</li>
+            <li><strong>Risco:</strong> Performance das queries em volumes de dados maiores
+                <br><strong>Mitigação:</strong> Criar índices adequados e otimizar queries durante desenvolvimento</li>
+            <li><strong>Risco:</strong> Falta de tempo para conclusão de todas as funcionalidades
+                <br><strong>Mitigação:</strong> Priorizar funcionalidades essenciais (CRUD básico) e deixar avançadas para versões futuras</li>
+        </ul>
+
+        <div class="footer">
+            <p>Plano do Projeto - Sistema de Gestão de Turismo</p>
+            <p>Elaborado em: 14 de Outubro de 2026 | Prazo de entrega: 25 de Outubro de 2026</p>
+            <p>Este documento deve ser atualizado conforme o avanço do projeto e aprovado pelo responsável acadêmico.</p>
+        </div>
+    </div>
+</body>
+</html>

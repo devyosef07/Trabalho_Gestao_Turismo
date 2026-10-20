@@ -1,0 +1,240 @@
+SQL> @calculoEspacoPorAtributo
+====================================================================
+ESTUDO DE ESPACO EM DISCO POR ATRIBUTO E POR TABELA (ORACLE)
+(executar depois de tabelas.sql)
+====================================================================
+--------------------------------------------------------------------            
+TABELA: TIPO_ALOJAMENTO (Projecao: 20 linhas)                                   
+--------------------------------------------------------------------            
+> Atributo: TIPO_ALOJAMENTO              | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: CAP_ALOJAMENTO               | Tipo: NUMBER     | Tam. Medio:   3   
+Bytes                                                                           
+-----------------------------------------------------------------               
+> Cabecalho da Linha (Row Header)  : 3 Bytes                                    
+> TAMANHO MEDIO POR LINHA          : 13 Bytes/linha                             
+> ESPACO UTIL REAL DE DADOS        : .0002 MB                                   
+--------------------------------------------------------------------            
+TABELA: DESTINO (Projecao: 100 linhas)                                          
+--------------------------------------------------------------------            
+> Atributo: ID_DESTINO                   | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: NOME_DESTINO                 | Tipo: VARCHAR2   | Tam. Medio:  41   
+Bytes                                                                           
+> Atributo: REGIAO                       | Tipo: VARCHAR2   | Tam. Medio:  26   
+Bytes                                                                           
+> Atributo: CAPACIDADE_VISITANTES        | Tipo: NUMBER     | Tam. Medio:   7   
+Bytes                                                                           
+-----------------------------------------------------------------               
+> Cabecalho da Linha (Row Header)  : 3 Bytes                                    
+> TAMANHO MEDIO POR LINHA          : 84 Bytes/linha                             
+> ESPACO UTIL REAL DE DADOS        : .008 MB                                    
+--------------------------------------------------------------------            
+TABELA: ATRACAO (Projecao: 2000 linhas)                                         
+--------------------------------------------------------------------            
+> Atributo: ID_ATRACAO                   | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: TIPO_ATRACAO                 | Tipo: VARCHAR2   | Tam. Medio:  16   
+Bytes                                                                           
+> Atributo: DESCRICAO                    | Tipo: VARCHAR2   | Tam. Medio: 101   
+Bytes                                                                           
+> Atributo: HORA_ABERTURA                | Tipo: CHAR       | Tam. Medio:   6   
+Bytes                                                                           
+> Atributo: HORA_FECHO                   | Tipo: CHAR       | Tam. Medio:   6   
+Bytes                                                                           
+> Atributo: HORA_ABERTURA_ESPECIAL       | Tipo: CHAR       | Tam. Medio:   6   
+Bytes                                                                           
+> Atributo: HORA_FECHO_ESPECIAL          | Tipo: CHAR       | Tam. Medio:   6   
+Bytes                                                                           
+> Atributo: DETALHES_HORARIO_ESPECIAL    | Tipo: VARCHAR2   | Tam. Medio: 101   
+Bytes                                                                           
+> Atributo: ID_DESTINO                   | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+-----------------------------------------------------------------               
+> Cabecalho da Linha (Row Header)  : 3 Bytes                                    
+> TAMANHO MEDIO POR LINHA          : 259 Bytes/linha                            
+> ESPACO UTIL REAL DE DADOS        : .494 MB                                    
+--------------------------------------------------------------------            
+TABELA: TURISTA (Projecao: 50000 linhas)                                        
+--------------------------------------------------------------------            
+> Atributo: ID_TURISTA                   | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: NOME_TURISTA                 | Tipo: VARCHAR2   | Tam. Medio:  41   
+Bytes                                                                           
+> Atributo: NACIONALIDADE                | Tipo: VARCHAR2   | Tam. Medio:  26   
+Bytes                                                                           
+-----------------------------------------------------------------               
+> Cabecalho da Linha (Row Header)  : 3 Bytes                                    
+> TAMANHO MEDIO POR LINHA          : 77 Bytes/linha                             
+> ESPACO UTIL REAL DE DADOS        : 3.6716 MB                                  
+--------------------------------------------------------------------            
+TABELA: TURISTA_PREFERENCIA (Projecao: 50000 linhas)                            
+--------------------------------------------------------------------            
+> Atributo: ID_TURISTA                   | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: PREFERENCIA                  | Tipo: VARCHAR2   | Tam. Medio: 101   
+Bytes                                                                           
+-----------------------------------------------------------------               
+> Cabecalho da Linha (Row Header)  : 3 Bytes                                    
+> TAMANHO MEDIO POR LINHA          : 111 Bytes/linha                            
+> ESPACO UTIL REAL DE DADOS        : 5.2929 MB                                  
+--------------------------------------------------------------------            
+TABELA: RESERVA (Projecao: 100000 linhas)                                       
+--------------------------------------------------------------------            
+> Atributo: ID_RESERVA                   | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: ID_TURISTA                   | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: DATA_CHEGADA                 | Tipo: DATE       | Tam. Medio:   8   
+Bytes                                                                           
+> Atributo: DATA_PARTIDA                 | Tipo: DATE       | Tam. Medio:   8   
+Bytes                                                                           
+> Atributo: STATUS_RESERVA               | Tipo: VARCHAR2   | Tam. Medio:   6   
+Bytes                                                                           
+-----------------------------------------------------------------               
+> Cabecalho da Linha (Row Header)  : 3 Bytes                                    
+> TAMANHO MEDIO POR LINHA          : 39 Bytes/linha                             
+> ESPACO UTIL REAL DE DADOS        : 3.7193 MB                                  
+--------------------------------------------------------------------            
+TABELA: OPERADOR (Projecao: 500 linhas)                                         
+--------------------------------------------------------------------            
+> Atributo: ID_OPERADOR                  | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: NOME_OPERADOR                | Tipo: VARCHAR2   | Tam. Medio:  14   
+Bytes                                                                           
+> Atributo: ESPECIALIDADE                | Tipo: VARCHAR2   | Tam. Medio:   9   
+Bytes                                                                           
+> Atributo: CLASS_OPERADOR               | Tipo: NUMBER     | Tam. Medio:   3   
+Bytes                                                                           
+-----------------------------------------------------------------               
+> Cabecalho da Linha (Row Header)  : 3 Bytes                                    
+> TAMANHO MEDIO POR LINHA          : 36 Bytes/linha                             
+> ESPACO UTIL REAL DE DADOS        : .0172 MB                                   
+--------------------------------------------------------------------            
+TABELA: ALOJAMENTO (Projecao: 1000 linhas)                                      
+--------------------------------------------------------------------            
+> Atributo: ID_ALOJAMENTO                | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: NOME_ALOJAMENTO              | Tipo: VARCHAR2   | Tam. Medio:  26   
+Bytes                                                                           
+> Atributo: TIPO_ALOJAMENTO              | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: CLASS_ALOJAMENTO             | Tipo: NUMBER     | Tam. Medio:   3   
+Bytes                                                                           
+> Atributo: ID_DESTINO                   | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+-----------------------------------------------------------------               
+> Cabecalho da Linha (Row Header)  : 3 Bytes                                    
+> TAMANHO MEDIO POR LINHA          : 53 Bytes/linha                             
+> ESPACO UTIL REAL DE DADOS        : .0505 MB                                   
+--------------------------------------------------------------------            
+TABELA: TRANSPORTE (Projecao: 1000 linhas)                                      
+--------------------------------------------------------------------            
+> Atributo: ID_TRANSPORTE                | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: TIPO_TRANSPORTE              | Tipo: VARCHAR2   | Tam. Medio:   9   
+Bytes                                                                           
+> Atributo: CAP_TRANSPORTE               | Tipo: NUMBER     | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: DISPONIBILIDADE              | Tipo: CHAR       | Tam. Medio:   4   
+Bytes                                                                           
+-----------------------------------------------------------------               
+> Cabecalho da Linha (Row Header)  : 3 Bytes                                    
+> TAMANHO MEDIO POR LINHA          : 30 Bytes/linha                             
+> ESPACO UTIL REAL DE DADOS        : .0286 MB                                   
+--------------------------------------------------------------------            
+TABELA: PAGAMENTO (Projecao: 100000 linhas)                                     
+--------------------------------------------------------------------            
+> Atributo: ID_PAGAMENTO                 | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: VALOR                        | Tipo: NUMBER     | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: DATA_PAGAMENTO               | Tipo: DATE       | Tam. Medio:   8   
+Bytes                                                                           
+> Atributo: METODO_PAGAMENTO             | Tipo: VARCHAR2   | Tam. Medio:   9   
+Bytes                                                                           
+> Atributo: STATUS_PAGAMENTO             | Tipo: VARCHAR2   | Tam. Medio:   6   
+Bytes                                                                           
+> Atributo: ID_RECIBO                    | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: DETALHES_TRANSACAO           | Tipo: VARCHAR2   | Tam. Medio: 101   
+Bytes                                                                           
+> Atributo: ID_RESERVA                   | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+-----------------------------------------------------------------               
+> Cabecalho da Linha (Row Header)  : 3 Bytes                                    
+> TAMANHO MEDIO POR LINHA          : 155 Bytes/linha                            
+> ESPACO UTIL REAL DE DADOS        : 14.782 MB                                  
+--------------------------------------------------------------------            
+TABELA: RESERVA_ALOJAMENTO (Projecao: 100000 linhas)                            
+--------------------------------------------------------------------            
+> Atributo: ID_RESERVA                   | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: ID_ALOJAMENTO                | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: AVALIACAO_ALOJAMENTO         | Tipo: NUMBER     | Tam. Medio:   3   
+Bytes                                                                           
+-----------------------------------------------------------------               
+> Cabecalho da Linha (Row Header)  : 3 Bytes                                    
+> TAMANHO MEDIO POR LINHA          : 20 Bytes/linha                             
+> ESPACO UTIL REAL DE DADOS        : 1.9073 MB                                  
+--------------------------------------------------------------------            
+TABELA: OPERADOR_TRANSPORTE (Projecao: 2000 linhas)                             
+--------------------------------------------------------------------            
+> Atributo: ID_OPERADOR                  | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: ID_TRANSPORTE                | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+-----------------------------------------------------------------               
+> Cabecalho da Linha (Row Header)  : 3 Bytes                                    
+> TAMANHO MEDIO POR LINHA          : 17 Bytes/linha                             
+> ESPACO UTIL REAL DE DADOS        : .0324 MB                                   
+--------------------------------------------------------------------            
+TABELA: OPERADOR_ALOJAMENTO (Projecao: 3000 linhas)                             
+--------------------------------------------------------------------            
+> Atributo: ID_OPERADOR                  | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: ID_ALOJAMENTO                | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+-----------------------------------------------------------------               
+> Cabecalho da Linha (Row Header)  : 3 Bytes                                    
+> TAMANHO MEDIO POR LINHA          : 17 Bytes/linha                             
+> ESPACO UTIL REAL DE DADOS        : .0486 MB                                   
+--------------------------------------------------------------------            
+TABELA: OPERADOR_TURISTA (Projecao: 50000 linhas)                               
+--------------------------------------------------------------------            
+> Atributo: ID_OPERADOR                  | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: ID_TURISTA                   | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: AVALIACAO_OPERADOR           | Tipo: NUMBER     | Tam. Medio:   3   
+Bytes                                                                           
+-----------------------------------------------------------------               
+> Cabecalho da Linha (Row Header)  : 3 Bytes                                    
+> TAMANHO MEDIO POR LINHA          : 20 Bytes/linha                             
+> ESPACO UTIL REAL DE DADOS        : .9537 MB                                   
+--------------------------------------------------------------------            
+TABELA: TURISTA_DESTINO (Projecao: 100000 linhas)                               
+--------------------------------------------------------------------            
+> Atributo: ID_DESTINO                   | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: ID_TURISTA                   | Tipo: VARCHAR2   | Tam. Medio:   7   
+Bytes                                                                           
+> Atributo: DATA_VISITA                  | Tipo: DATE       | Tam. Medio:   8   
+Bytes                                                                           
+-----------------------------------------------------------------               
+> Cabecalho da Linha (Row Header)  : 3 Bytes                                    
+> TAMANHO MEDIO POR LINHA          : 25 Bytes/linha                             
+> ESPACO UTIL REAL DE DADOS        : 2.3842 MB                                  
+====================================================================            
+SOMA TOTAL UTIL DA BASE DE DADOS      : 33.39 MB                                
+ESPACO FISICO RECOMENDADO EM DISCO    : 39.28 MB                                
+--------------------------------------------------------------------            
+Pressupostos: VARCHAR2 com 50% do tamanho maximo (identificadores a 100%);      
+15% de reserva por bloco (PCTFREE e cabecalho do bloco);                        
+NAO inclui indices nem espaco de undo/redo.                                     
+====================================================================            
+
+PL/SQL procedure successfully completed.
+
+SQL> spool off

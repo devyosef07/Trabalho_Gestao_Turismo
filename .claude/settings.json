@@ -1,0 +1,11 @@
+{
+  "enabledPlugins": {
+    "code-review-anthropics@anthropic-plugin-directory": true,
+    "greptile@anthropic-plugin-directory": true,
+    "superdesign@anthropic-plugin-directory": true,
+    "claude-code-setup@anthropic-plugin-directory": true,
+    "code-review-16urls@anthropic-plugin-directory": true,
+    "feature-dev@anthropic-plugin-directory": true,
+    "superpowers@anthropic-plugin-directory": true
+  }
+}
