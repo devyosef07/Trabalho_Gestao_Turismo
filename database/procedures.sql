@@ -1,14 +1,34 @@
+-- ============================================================
+-- TRABALHO PRÁTICO - BASE DE DADOS I (ISCTEM 2026)
+-- GRUPO 1: GESTÃO DE TURISMO EM MOÇAMBIQUE
+-- SCRIPT DE PROCEDURES (Oracle 10g XE)
+-- Executar depois de tabelas.sql e Sequences.sql
+--
+-- As correções feitas ao script original estão assinaladas com "NOTA".
+-- NOTA geral: no Oracle 10g não se pode usar sequencia.NEXTVAL diretamente numa
+-- expressão PL/SQL (só a partir do 11g, PLS-00357); o número lê-se com
+-- SELECT ... INTO ... FROM dual, como nas funções de functions.sql.
+-- ============================================================
+
+SET SERVEROUTPUT ON
+
 --A. Registrar uma novo reserva realizada por um turista.
+-- NOTA: faltava declarar a variável do ID e o parâmetro chama-se novo_status.
+-- O formato 'RES' || 0000 dava 7 caracteres (a coluna é VARCHAR2(6)); usa-se
+-- 'RS-' || 000 como em Inserts.sql.
 CREATE OR REPLACE PROCEDURE registrar_reserva (
     novo_id_turista IN VARCHAR2, 
     novo_data_chegada IN DATE,
     novo_data_partida IN DATE,
     novo_status IN VARCHAR2 
 ) AS
+    v_num NUMBER;
+    novo_id_reserva Reserva.ID_reserva%TYPE;
 BEGIN
-    novo_id_reserva := 'RES' || TO_CHAR(ID_reserva.NEXTVAL, 'FM0000');
+    SELECT ID_reserva.NEXTVAL INTO v_num FROM dual;
+    novo_id_reserva := 'RS-' || LPAD(v_num, 3, '0');
     INSERT INTO reserva (ID_reserva, ID_turista, data_chegada, data_partida, status_reserva)
-    VALUES (novo_id_reserva, novo_id_turista, novo_data_chegada, novo_data_partida, novo_status_reserva);
+    VALUES (novo_id_reserva, novo_id_turista, novo_data_chegada, novo_data_partida, novo_status);
     
     COMMIT;
     DBMS_OUTPUT.PUT_LINE('Reserva ' || novo_id_reserva || ' gerada com sucesso!');
@@ -38,6 +58,7 @@ END;
 /
 
 --C. Gerar e registrar um ou mais pagamentos vinculados a uma reserva.
+-- NOTA: faltava declarar a variável do ID.
 CREATE OR REPLACE PROCEDURE registrar_pagamento (
     novo_id_reserva IN VARCHAR2, 
     novo_valor IN NUMBER, 
@@ -46,8 +67,11 @@ CREATE OR REPLACE PROCEDURE registrar_pagamento (
     novo_status_pagamento IN VARCHAR2, 
     novo_id_recibo IN VARCHAR2
 ) AS
+    v_num NUMBER;
+    novo_id_pagamento Pagamento.ID_pagamento%TYPE;
 BEGIN
-    novo_id_pagamento := 'PG-' || LPAD(ID_pagamento.NEXTVAL, 3, '0');
+    SELECT ID_pagamento.NEXTVAL INTO v_num FROM dual;
+    novo_id_pagamento := 'PG-' || LPAD(v_num, 3, '0');
     INSERT INTO pagamento (ID_pagamento, ID_reserva, valor, data_pagamento, metodo_pagamento, status_pagamento, ID_recibo)
     VALUES (novo_id_pagamento, novo_id_reserva, novo_valor, novo_data_pagamento, novo_metodo_pagamento, novo_status_pagamento, novo_id_recibo);
     
@@ -61,14 +85,17 @@ END;
 /
 
 --D. Registar a realização de uma visita de um turista a um destino (Turista_destino).
+-- NOTA: o original inseria avaliacao_operador em Turista_Destino (coluna que
+-- não existe) e não indicava data_visita, que é obrigatória e faz parte da
+-- chave primária. O terceiro parâmetro passa a ser a data da visita.
 CREATE OR REPLACE PROCEDURE registrar_visita (
     novo_id_destino IN VARCHAR2,
     novo_id_turista IN VARCHAR2,
-    avaliacao_operador IN NUMBER
+    novo_data_visita IN DATE
 ) AS
 BEGIN
-    INSERT INTO turista_destino (ID_destino, ID_turista, avaliacao_operador)
-    VALUES (novo_id_destino, novo_id_turista, avaliacao_operador);
+    INSERT INTO turista_destino (ID_destino, ID_turista, data_visita)
+    VALUES (novo_id_destino, novo_id_turista, TRUNC(novo_data_visita));
     
     COMMIT;
     DBMS_OUTPUT.PUT_LINE('Turista  ' || novo_id_turista || ' realiza visita ao destino ' || novo_id_destino || ' com sucesso!');
@@ -80,15 +107,20 @@ END;
 /
 
 --E. Associar novos atrações turísticas a um destino específico.
+-- NOTA: faltava declarar a variável do ID e as horas eram DATE, mas as colunas
+-- são CHAR(5) no formato HH24:MI; os parâmetros passam a VARCHAR2.
 CREATE OR REPLACE PROCEDURE registrar_atracao (
     novo_id_destino IN VARCHAR2,
     novo_tipo_atracao IN VARCHAR2,
     novo_descricao IN VARCHAR2,
-    novo_hora_abertura IN DATE,
-    novo_hora_fecho IN DATE
+    novo_hora_abertura IN VARCHAR2,
+    novo_hora_fecho IN VARCHAR2
 ) AS
+    v_num NUMBER;
+    novo_id_atracao Atracao.ID_atracao%TYPE;
 BEGIN
-    novo_id_atracao := 'AT-' || LPAD(ID_atracao.NEXTVAL, 3, '0');
+    SELECT ID_atracao.NEXTVAL INTO v_num FROM dual;
+    novo_id_atracao := 'AT-' || LPAD(v_num, 3, '0');
     INSERT INTO Atracao (ID_atracao, ID_destino, tipo_atracao, descricao, hora_abertura, hora_fecho) 
     VALUES (novo_id_atracao, novo_id_destino, novo_tipo_atracao, novo_descricao, novo_hora_abertura, novo_hora_fecho);
     COMMIT;
@@ -239,15 +271,21 @@ END;
 /
 
 --M. Alterar o horário de funcionamento de uma atração devido a um feriado ou evento.
+-- NOTA: as colunas chamam-se hora_abertura_especial / hora_fecho_especial
+-- (sem o prefixo "Horario_"). A constraint CHECK da tabela exige que
+-- detalhes_horario_especial seja preenchido junto com as horas especiais,
+-- por isso foi acrescentado esse parâmetro.
 CREATE OR REPLACE PROCEDURE alterar_horario_atracao (
     novo_id_atracao IN Atracao.ID_atracao%TYPE,
-    novo_hora_abertura_especial IN Atracao.Horario_hora_abertura_especial%TYPE,
-    novo_hora_fecho_especial IN Atracao.Horario_hora_fecho_especial%TYPE
+    novo_hora_abertura_especial IN Atracao.hora_abertura_especial%TYPE,
+    novo_hora_fecho_especial IN Atracao.hora_fecho_especial%TYPE,
+    novo_detalhes_horario_especial IN Atracao.detalhes_horario_especial%TYPE
 ) AS
 BEGIN
     UPDATE Atracao
-    SET horario_hora_abertura_especial = novo_hora_abertura_especial,
-        horario_hora_fecho_especial = novo_hora_fecho_especial
+    SET hora_abertura_especial = novo_hora_abertura_especial,
+        hora_fecho_especial = novo_hora_fecho_especial,
+        detalhes_horario_especial = novo_detalhes_horario_especial
     WHERE ID_atracao = novo_id_atracao;
 
     IF SQL%FOUND THEN
@@ -339,3 +377,6 @@ EXCEPTION
         DBMS_OUTPUT.PUT_LINE('Erro ao avaliar operador: ' || SQLERRM);
 END;
 /
+
+-- Verificação: não deve aparecer nenhuma procedure INVALID
+SELECT object_name, status FROM user_objects WHERE object_type = 'PROCEDURE' ORDER BY object_name;

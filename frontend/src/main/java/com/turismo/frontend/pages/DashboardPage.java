@@ -48,12 +48,28 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 /**
- * Painel inicial. Tudo o que aparece vem da base de dados:
- * os totais das 15 tabelas, as views de receita, reservas ativas e atrações
- * por destino, e as views de verificação. Cada secção carrega e falha de
- * forma independente, com o motivo indicado.
+ * Painel inicial. Tudo o que aparece vem das views de database/views.sql:
+ * os indicadores do topo (contados ou somados a partir das linhas das views),
+ * a receita, as reservas ativas, as atrações por destino e as views de
+ * verificação. Cada secção carrega e falha de forma independente, com o
+ * motivo indicado.
  */
 public class DashboardPage extends Surface implements Page {
+
+    /**
+     * Indicadores do topo: chave, rótulo, módulo que abre, view de origem e
+     * coluna a somar (null = número de linhas da view).
+     */
+    private static final String[][] TOTALS = {
+            {"destinos", "Destinos", "destinos", "v_total_atracoes_destino", null},
+            {"atracoes", "Atrações", "atracoes", "v_total_atracoes_destino", "total_atracoes"},
+            {"alojamentos", "Alojamentos", "alojamentos", "v_total_alojamentos_destino", "total_alojamentos"},
+            {"reservasAtivas", "Reservas ativas", "reservas", "v_reservas_ativas", null},
+            {"operadores", "Operadores", "operadores", "v_avaliacao_operador", null},
+    };
+
+    private static final String VIEW_EM_FALTA = "O SYSTEM tem de correr database/conceder_privilegios.sql "
+            + "e depois executa-se database/views.sql para criar as views.";
 
     private final ApiClient api;
     private final Consumer<String> navigate;
@@ -148,15 +164,12 @@ public class DashboardPage extends Surface implements Page {
     }
 
     private JComponent buildTotals() {
-        Card card = new Card(new GridLayout(1, 7));
+        Card card = new Card(new GridLayout(1, TOTALS.length + 1));
         card.setName("totais");
         card.setBorder(UI.pad(UI.S4, 0, UI.S4, 0));
-        addTotal(card, "destinos", "Destinos", "destinos");
-        addTotal(card, "turistas", "Turistas", "turistas");
-        addTotal(card, "reservas", "Reservas", "reservas");
-        addTotal(card, "alojamentos", "Alojamentos", "alojamentos");
-        addTotal(card, "operadores", "Operadores", "operadores");
-        addTotal(card, "pagamentos", "Pagamentos", "pagamentos");
+        for (String[] total : TOTALS) {
+            addTotal(card, total[0], total[1], total[2]);
+        }
         JPanel money = tile("Receita total", receitaTotal, receitaNota, null, true);
         card.add(money);
         return card;
@@ -260,10 +273,10 @@ public class DashboardPage extends Surface implements Page {
 
     private void render(JsonObject data) {
         pageCards.show(pageHost, "content");
-        JsonObject t = data.getAsJsonObject("totais");
-        totals.forEach((k, label) -> label.setText(t.has(k) ? t.get(k).getAsString() : Format.EMPTY));
-
         JsonObject views = data.getAsJsonObject("views");
+        for (String[] total : TOTALS) {
+            renderTotal(totals.get(total[0]), views.getAsJsonObject(total[3]), total[3], total[4]);
+        }
         JsonObject mensal = views.getAsJsonObject("v_receita_mensal");
         if (mensal.get("ok").getAsBoolean()) {
             BigDecimal sum = BigDecimal.ZERO;
@@ -293,6 +306,28 @@ public class DashboardPage extends Surface implements Page {
                 "Não há destinos registados.", v -> Format.number(v));
         renderAtivas(views.getAsJsonObject("v_reservas_ativas"));
         integridade.setChecks(data.getAsJsonObject("verificacoes"));
+    }
+
+    /** Número de linhas da view ou soma de uma coluna; "—" se a view não existir. */
+    private static void renderTotal(JLabel label, JsonObject section, String view, String sumCol) {
+        if (!section.get("ok").getAsBoolean()) {
+            label.setText(Format.EMPTY);
+            label.setToolTipText(section.get("error").getAsString());
+            return;
+        }
+        JsonObject d = section.getAsJsonObject("data");
+        JsonArray rows = d.getAsJsonArray("rows");
+        BigDecimal value = BigDecimal.valueOf(rows.size());
+        if (sumCol != null) {
+            int c = col(d, sumCol);
+            value = BigDecimal.ZERO;
+            for (JsonElement r : rows) {
+                JsonElement v = r.getAsJsonArray().get(c);
+                value = v.isJsonNull() ? value : value.add(v.getAsBigDecimal());
+            }
+        }
+        label.setText(Format.number(value));
+        label.setToolTipText("View " + view);
     }
 
     private static int col(JsonObject view, String name) {
@@ -325,7 +360,7 @@ public class DashboardPage extends Surface implements Page {
 
     private void renderAtivas(JsonObject section) {
         if (!section.get("ok").getAsBoolean()) {
-            ativas.content(ativas.state.unavailable("View em falta", "Aplique database/correcoes.sql para criar as views."));
+            ativas.content(ativas.state.unavailable("View em falta", VIEW_EM_FALTA));
             return;
         }
         JsonObject d = section.getAsJsonObject("data");
@@ -462,7 +497,7 @@ public class DashboardPage extends Surface implements Page {
         void error(String message) {
             asTable.setVisible(false);
             if (message.contains("não existe na base de dados")) {
-                content(state.unavailable("View em falta", "Aplique database/correcoes.sql para criar as views."));
+                content(state.unavailable("View em falta", VIEW_EM_FALTA));
             } else {
                 error("Sem dados desta view", message);
             }
@@ -632,7 +667,9 @@ public class DashboardPage extends Surface implements Page {
             sb.append("  ").append(e.getAsString()).append('\n');
         }
         sb.append("\nUm trigger INVALID impede todas as escritas na tabela a que pertence. ")
-                .append("O script database/correcoes.sql recria estes objetos e as views.");
+                .append("Os scripts database/Triggers.sql e database/procedures.sql recriam estes objetos e database/views.sql as views.\n")
+                .append("As views só podem ser criadas depois de o SYSTEM conceder o privilégio CREATE VIEW ")
+                .append("(database/conceder_privilegios.sql).");
         JTextArea area = new JTextArea(sb.toString(), 18, 52);
         area.setEditable(false);
         area.setFont(Theme.body());

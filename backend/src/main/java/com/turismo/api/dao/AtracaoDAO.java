@@ -15,10 +15,8 @@ import java.util.List;
  */
 public class AtracaoDAO extends BaseDAO {
 
-    private static final String SELECT =
-            "SELECT a.ID_ATRACAO, a.TIPO_ATRACAO, a.DESCRICAO, a.HORA_ABERTURA, a.HORA_FECHO, "
-                    + "a.HORA_ABERTURA_ESPECIAL, a.HORA_FECHO_ESPECIAL, a.DETALHES_HORARIO_ESPECIAL, a.ID_DESTINO, "
-                    + "d.NOME_DESTINO FROM ATRACAO a JOIN DESTINO d ON d.ID_DESTINO = a.ID_DESTINO";
+    /** Leitura só da view v_lista_atracoes (database/views.sql), nunca da tabela. */
+    private static final String SELECT = "SELECT * FROM V_LISTA_ATRACOES";
 
     public AtracaoDAO() {
     }
@@ -28,15 +26,15 @@ public class AtracaoDAO extends BaseDAO {
     }
 
     public List<Atracao> getAllAtracoes() throws SQLException {
-        return query(SELECT + " ORDER BY a.ID_ATRACAO", AtracaoDAO::map);
+        return query(SELECT + " ORDER BY ID_ATRACAO", AtracaoDAO::map);
     }
 
     public Atracao getAtracaoById(String id) throws SQLException {
-        return queryOne(SELECT + " WHERE a.ID_ATRACAO = ?", AtracaoDAO::map, id);
+        return queryOne(SELECT + " WHERE ID_ATRACAO = ?", AtracaoDAO::map, id);
     }
 
     public List<Atracao> getAtracoesByDestino(String idDestino) throws SQLException {
-        return query(SELECT + " WHERE a.ID_DESTINO = ? ORDER BY a.ID_ATRACAO", AtracaoDAO::map, idDestino);
+        return query(SELECT + " WHERE ID_DESTINO = ? ORDER BY ID_ATRACAO", AtracaoDAO::map, idDestino);
     }
 
     public String addAtracao(Atracao a) throws SQLException {

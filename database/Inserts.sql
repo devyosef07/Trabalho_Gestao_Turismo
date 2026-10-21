@@ -1,3 +1,16 @@
+-- ============================================================
+-- TRABALHO PRÁTICO - BASE DE DADOS I (ISCTEM 2026)
+-- GRUPO 1: GESTÃO DE TURISMO EM MOÇAMBIQUE
+-- DADOS DE EXEMPLO (Oracle 10g XE)
+-- Executar depois de tabelas.sql, Sequences.sql e Triggers.sql
+--
+-- NOTA: as datas eram fixas (ex.: chegada a 15-10-2026). Os triggers
+-- validardatachegada e validarpagamento recusam chegadas no passado e
+-- pagamentos no futuro ou com mais de 12 meses, por isso as datas fixas
+-- deixavam de ser aceites com o passar do tempo. Passaram a ser relativas
+-- à data de execução (TRUNC(SYSDATE) + n dias).
+-- ============================================================
+
 -- 1. DESTINOS
 INSERT INTO Destino (ID_destino, nome_destino, regiao, capacidade_visitantes)
 VALUES ('DT-' || LPAD(ID_destino.NEXTVAL, 3, '0'), 'Arquipelago de Bazaruto', 'Inhambane', 500);
@@ -27,20 +40,20 @@ VALUES ('TR-' || LPAD(ID_turista.NEXTVAL, 3, '0'), 'Emma Brown', 'Britanica');
 
 -- 4. RESERVAS
 INSERT INTO Reserva (ID_reserva, ID_turista, data_chegada, data_partida, status_reserva) 
-VALUES ('RS-' || LPAD(ID_reserva.NEXTVAL, 3, '0'), 'TR-001', TO_DATE('15-10-2026','DD-MM-YYYY'), TO_DATE('20-10-2026','DD-MM-YYYY'), 'CONFIRMADA');
+VALUES ('RS-' || LPAD(ID_reserva.NEXTVAL, 3, '0'), 'TR-001', TRUNC(SYSDATE) + 7, TRUNC(SYSDATE) + 12, 'CONFIRMADA');
 
 INSERT INTO Reserva (ID_reserva, ID_turista, data_chegada, data_partida, status_reserva) 
-VALUES ('RS-' || LPAD(ID_reserva.NEXTVAL, 3, '0'), 'TR-002', TO_DATE('01-11-2026','DD-MM-YYYY'), TO_DATE('05-11-2026','DD-MM-YYYY'), 'PENDENTE');
+VALUES ('RS-' || LPAD(ID_reserva.NEXTVAL, 3, '0'), 'TR-002', TRUNC(SYSDATE) + 14, TRUNC(SYSDATE) + 18, 'PENDENTE');
 
 -- 5. PAGAMENTOS
 INSERT INTO Pagamento (ID_pagamento, ID_reserva, valor, data_pagamento, metodo_pagamento, status_pagamento, ID_recibo) 
-VALUES ('PG-' || LPAD(ID_pagamento.NEXTVAL, 3, '0'), 'RS-001', 25000.00, TO_DATE('10-10-2026','DD-MM-YYYY'), 'TRANSFERENCIA', 'CONCLUIDO', 'RC-001');
+VALUES ('PG-' || LPAD(ID_pagamento.NEXTVAL, 3, '0'), 'RS-001', 25000.00, TRUNC(SYSDATE) - 5, 'TRANSFERENCIA', 'CONCLUIDO', 'RC-001');
 
 INSERT INTO Pagamento (ID_pagamento, ID_reserva, valor, data_pagamento, metodo_pagamento, status_pagamento, ID_recibo) 
-VALUES ('PG-' || LPAD(ID_pagamento.NEXTVAL, 3, '0'), 'RS-002', 15000.00, TO_DATE('10-10-2026','DD-MM-YYYY'), 'CARTAO', 'CONCLUIDO', 'RC-002');
+VALUES ('PG-' || LPAD(ID_pagamento.NEXTVAL, 3, '0'), 'RS-002', 15000.00, TRUNC(SYSDATE) - 5, 'CARTAO', 'CONCLUIDO', 'RC-002');
 
 INSERT INTO Pagamento (ID_pagamento, ID_reserva, valor, data_pagamento, metodo_pagamento, status_pagamento, ID_recibo) 
-VALUES ('PG-' || LPAD(ID_pagamento.NEXTVAL, 3, '0'), 'RS-001', 5000.00, TO_DATE('25-09-2026','DD-MM-YYYY'), 'DINHEIRO', 'CONCLUIDO', 'RC-003');
+VALUES ('PG-' || LPAD(ID_pagamento.NEXTVAL, 3, '0'), 'RS-001', 5000.00, TRUNC(SYSDATE) - 30, 'DINHEIRO', 'CONCLUIDO', 'RC-003');
 
 -- 6. TIPOS DE ALOJAMENTO (a capacidade depende do tipo)
 INSERT INTO Tipo_Alojamento (tipo_alojamento, cap_alojamento) VALUES ('Casal', 2);
@@ -90,8 +103,8 @@ INSERT INTO Operador_Alojamento (ID_operador, ID_alojamento) VALUES ('OP-002', '
 INSERT INTO Operador_Turista (ID_operador, ID_turista, avaliacao_operador) VALUES ('OP-001', 'TR-001', NULL);
 INSERT INTO Operador_Turista (ID_operador, ID_turista, avaliacao_operador) VALUES ('OP-002', 'TR-002', NULL);
 
--- 15. TURISTA_DESTINO (visitas planeadas)
-INSERT INTO Turista_Destino (ID_destino, ID_turista, data_visita) VALUES ('DT-001', 'TR-001', TO_DATE('15-10-2026','DD-MM-YYYY'));
-INSERT INTO Turista_Destino (ID_destino, ID_turista, data_visita) VALUES ('DT-002', 'TR-002', TO_DATE('01-11-2026','DD-MM-YYYY'));
+-- 15. TURISTA_DESTINO (visitas planeadas, no dia de chegada de cada reserva)
+INSERT INTO Turista_Destino (ID_destino, ID_turista, data_visita) VALUES ('DT-001', 'TR-001', TRUNC(SYSDATE) + 7);
+INSERT INTO Turista_Destino (ID_destino, ID_turista, data_visita) VALUES ('DT-002', 'TR-002', TRUNC(SYSDATE) + 14);
 
 COMMIT;

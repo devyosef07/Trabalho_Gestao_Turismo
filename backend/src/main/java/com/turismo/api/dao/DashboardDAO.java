@@ -13,28 +13,14 @@ import java.util.Map;
 /**
  * Dados do painel inicial, obtidos com uma só ligação.
  *
+ * Tudo o que o painel mostra vem das views de database/views.sql (nunca
+ * diretamente das tabelas); os indicadores do topo são calculados pela
+ * interface a partir das linhas destas views.
+ *
  * Cada secção é lida de forma independente: se uma view não existir, só essa
  * secção devolve erro e as restantes continuam a aparecer.
  */
 public class DashboardDAO extends BaseDAO {
-
-    /** Contagens por tabela: não existe nenhuma view com estes totais. */
-    private static final String COUNTS =
-            "SELECT 'destinos', COUNT(*) FROM DESTINO UNION ALL "
-                    + "SELECT 'atracoes', COUNT(*) FROM ATRACAO UNION ALL "
-                    + "SELECT 'alojamentos', COUNT(*) FROM ALOJAMENTO UNION ALL "
-                    + "SELECT 'tiposAlojamento', COUNT(*) FROM TIPO_ALOJAMENTO UNION ALL "
-                    + "SELECT 'transportes', COUNT(*) FROM TRANSPORTE UNION ALL "
-                    + "SELECT 'turistas', COUNT(*) FROM TURISTA UNION ALL "
-                    + "SELECT 'preferencias', COUNT(*) FROM TURISTA_PREFERENCIA UNION ALL "
-                    + "SELECT 'operadores', COUNT(*) FROM OPERADOR UNION ALL "
-                    + "SELECT 'reservas', COUNT(*) FROM RESERVA UNION ALL "
-                    + "SELECT 'pagamentos', COUNT(*) FROM PAGAMENTO UNION ALL "
-                    + "SELECT 'visitas', COUNT(*) FROM TURISTA_DESTINO UNION ALL "
-                    + "SELECT 'reservaAlojamentos', COUNT(*) FROM RESERVA_ALOJAMENTO UNION ALL "
-                    + "SELECT 'operadorTuristas', COUNT(*) FROM OPERADOR_TURISTA UNION ALL "
-                    + "SELECT 'operadorTransportes', COUNT(*) FROM OPERADOR_TRANSPORTE UNION ALL "
-                    + "SELECT 'operadorAlojamentos', COUNT(*) FROM OPERADOR_ALOJAMENTO";
 
     /** Views usadas no painel. */
     static final List<String> DASHBOARD_VIEWS = List.of(
@@ -66,12 +52,6 @@ public class DashboardDAO extends BaseDAO {
     public Map<String, Object> load() throws SQLException {
         try (Connection c = connections.get()) {
             Map<String, Object> result = new LinkedHashMap<>();
-            Map<String, Integer> counts = new LinkedHashMap<>();
-            for (Object[] row : query(c, COUNTS, rs -> new Object[]{rs.getString(1), rs.getInt(2)})) {
-                counts.put((String) row[0], (Integer) row[1]);
-            }
-            result.put("totais", counts);
-
             Map<String, Object> views = new LinkedHashMap<>();
             for (String view : DASHBOARD_VIEWS) {
                 views.put(view, section(c, view));
@@ -97,7 +77,8 @@ public class DashboardDAO extends BaseDAO {
             s.put("ok", false);
             s.put("code", error.getCode());
             s.put("error", e.getErrorCode() == 942
-                    ? "A view " + view + " não existe na base de dados. Aplique database/correcoes.sql."
+                    ? "A view " + view + " não existe na base de dados. Execute database/views.sql "
+                    + "(precisa do privilégio CREATE VIEW: database/conceder_privilegios.sql)."
                     : error.getMessage());
         }
         return s;

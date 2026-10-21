@@ -40,7 +40,7 @@ class DbErrorsTest {
         assertEquals(503, e.getStatus());
         assertEquals("TRIGGER_INVALIDO", e.getCode());
         assertTrue(e.getMessage().contains("VALIDARHORABERTURA"), e.getMessage());
-        assertTrue(e.getMessage().contains("correcoes.sql"));
+        assertTrue(e.getMessage().contains("Triggers.sql"));
     }
 
     @Test

@@ -19,10 +19,8 @@ import java.util.regex.Pattern;
  */
 public class TuristaDAO extends BaseDAO {
 
-    private static final String SELECT =
-            "SELECT t.ID_TURISTA, t.NOME_TURISTA, t.NACIONALIDADE, "
-                    + "(SELECT COUNT(*) FROM RESERVA r WHERE r.ID_TURISTA = t.ID_TURISTA) AS TOTAL_RESERVAS "
-                    + "FROM TURISTA t";
+    /** Leitura só da view v_lista_turistas (database/views.sql), nunca da tabela. */
+    private static final String SELECT = "SELECT * FROM V_LISTA_TURISTAS";
     private static final Pattern CODIGO = Pattern.compile("([A-Z]{2}-\\d{3})");
 
     public TuristaDAO() {
@@ -37,7 +35,7 @@ public class TuristaDAO extends BaseDAO {
      * @return List of Turista objects
      */
     public List<Turista> getAllTuristas() throws SQLException {
-        return query(SELECT + " ORDER BY t.ID_TURISTA", TuristaDAO::map);
+        return query(SELECT + " ORDER BY ID_TURISTA", TuristaDAO::map);
     }
 
     /**
@@ -46,7 +44,7 @@ public class TuristaDAO extends BaseDAO {
      * @return Turista object or null if not found
      */
     public Turista getTuristaById(String id) throws SQLException {
-        return queryOne(SELECT + " WHERE t.ID_TURISTA = ?", TuristaDAO::map, id);
+        return queryOne(SELECT + " WHERE ID_TURISTA = ?", TuristaDAO::map, id);
     }
 
     /**

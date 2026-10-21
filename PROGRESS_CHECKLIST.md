@@ -11,7 +11,7 @@ Estado em 20-10-2026. Legenda: ✅ concluído e testado · 🟡 implementado mas
 - ✅ Listas de valores lidas das constraints CHECK da BD
 - ✅ Leitura da saída `DBMS_OUTPUT` das procedures para detetar falhas que elas próprias engolem
 - ✅ API REST com GET/POST/PUT/DELETE para as 15 tabelas, e ainda `/estado`, `/dominios`, `/dashboard` e `/relatorios/{view}`
-- ✅ Script de correção da BD (`database/correcoes.sql`) escrito; ⛔ **não aplicado** (aguarda autorização)
+- ✅ Scripts SQL corrigidos no próprio ficheiro; `database/main.sql` corre-os pela ordem certa e `apagarAtualizar.sql` apaga tudo e recria; aplicados em 21-10-2026: 0 objetos inválidos. ⛔ As 24 views precisam de `GRANT CREATE VIEW` pelo SYSTEM (`conceder_privilegios.sql`)
 
 ## Interface
 
@@ -50,6 +50,6 @@ Estado em 20-10-2026. Legenda: ✅ concluído e testado · 🟡 implementado mas
 
 ## Para fechar os itens 🟡 e ⛔
 
-1. Autorizar e aplicar `database/correcoes.sql` (cria as 24 views e corrige os 17 objetos inválidos).
+1. O SYSTEM executar `database/conceder_privilegios.sql` e, a seguir, correr `database/views.sql` (cria as 24 views).
 2. Autorizar testes que gravam dados (com limpeza no fim) para as funções e procedures que fazem COMMIT.
 3. Correr `mvn clean test` e `executar.bat` num Windows.

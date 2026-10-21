@@ -12,17 +12,13 @@ import java.util.List;
  * Data Access Object for Reserva entity
  *
  * A criação usa SQL direto numa transação (reserva + alojamentos escolhidos):
- * a procedure registrar_reserva está INVALID e associar_alojamento_reserva faz
- * COMMIT sozinha, o que impediria criar tudo de forma atómica.
+ * as procedures registrar_reserva e associar_alojamento_reserva fazem COMMIT
+ * sozinhas, o que impediria criar tudo de forma atómica.
  */
 public class ReservaDAO extends BaseDAO {
 
-    private static final String SELECT =
-            "SELECT r.ID_RESERVA, r.DATA_CHEGADA, r.DATA_PARTIDA, r.STATUS_RESERVA, r.ID_TURISTA, t.NOME_TURISTA, "
-                    + "(r.DATA_PARTIDA - r.DATA_CHEGADA) AS NOITES, "
-                    + "Total_Pago_Reserva(r.ID_RESERVA) AS TOTAL_PAGO, "
-                    + "Reserva_Completa(r.ID_RESERVA) AS ESTADO_COMPLETUDE "
-                    + "FROM RESERVA r JOIN TURISTA t ON t.ID_TURISTA = r.ID_TURISTA";
+    /** Leitura só da view v_lista_reservas (database/views.sql), nunca da tabela. */
+    private static final String SELECT = "SELECT * FROM V_LISTA_RESERVAS";
 
     public ReservaDAO() {
     }
@@ -32,15 +28,15 @@ public class ReservaDAO extends BaseDAO {
     }
 
     public List<Reserva> getAllReservas() throws SQLException {
-        return query(SELECT + " ORDER BY r.ID_RESERVA", ReservaDAO::map);
+        return query(SELECT + " ORDER BY ID_RESERVA", ReservaDAO::map);
     }
 
     public Reserva getReservaById(String id) throws SQLException {
-        return queryOne(SELECT + " WHERE r.ID_RESERVA = ?", ReservaDAO::map, id);
+        return queryOne(SELECT + " WHERE ID_RESERVA = ?", ReservaDAO::map, id);
     }
 
     public List<Reserva> getReservasByTurista(String idTurista) throws SQLException {
-        return query(SELECT + " WHERE r.ID_TURISTA = ? ORDER BY r.ID_RESERVA", ReservaDAO::map, idTurista);
+        return query(SELECT + " WHERE ID_TURISTA = ? ORDER BY ID_RESERVA", ReservaDAO::map, idTurista);
     }
 
     /** Cria a reserva e associa os alojamentos indicados, tudo ou nada. */
@@ -59,12 +55,22 @@ public class ReservaDAO extends BaseDAO {
         });
     }
 
-    /** Uma só instrução, para as datas e o estado mudarem juntos. */
+    /**
+     * Turista e datas com UPDATE; o estado com a função Actualiza_Status_Reserva,
+     * na mesma transação. A função faz COMMIT das duas alterações quando corre
+     * bem e ROLLBACK de ambas quando falha, por isso mudam sempre juntas.
+     */
     public boolean updateReserva(Reserva reserva) throws SQLException {
-        return update("UPDATE RESERVA SET ID_TURISTA = ?, DATA_CHEGADA = ?, DATA_PARTIDA = ?, STATUS_RESERVA = ? "
-                        + "WHERE ID_RESERVA = ?",
-                reserva.getIdTurista(), reserva.getDataChegada(), reserva.getDataPartida(), reserva.getStatusReserva(),
-                reserva.getIdReserva()) > 0;
+        return inTransaction(c -> {
+            if (update(c, "UPDATE RESERVA SET ID_TURISTA = ?, DATA_CHEGADA = ?, DATA_PARTIDA = ? WHERE ID_RESERVA = ?",
+                    reserva.getIdTurista(), reserva.getDataChegada(), reserva.getDataPartida(),
+                    reserva.getIdReserva()) == 0) {
+                return false;
+            }
+            requireSuccess(callStringFunction(c, "Actualiza_Status_Reserva", reserva.getIdReserva(),
+                    reserva.getStatusReserva()), "Reserva " + reserva.getIdReserva() + " actualizada");
+            return true;
+        });
     }
 
     /** Usa a procedure cancelar_reserva. */

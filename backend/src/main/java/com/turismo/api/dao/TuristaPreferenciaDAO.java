@@ -13,9 +13,8 @@ import java.util.List;
  */
 public class TuristaPreferenciaDAO extends BaseDAO {
 
-    private static final String SELECT =
-            "SELECT tp.ID_TURISTA, tp.PREFERENCIA, t.NOME_TURISTA "
-                    + "FROM TURISTA_PREFERENCIA tp JOIN TURISTA t ON t.ID_TURISTA = tp.ID_TURISTA";
+    /** Leitura só da view v_lista_preferencias (database/views.sql), nunca da tabela. */
+    private static final String SELECT = "SELECT * FROM V_LISTA_PREFERENCIAS";
 
     public TuristaPreferenciaDAO() {
     }
@@ -25,15 +24,15 @@ public class TuristaPreferenciaDAO extends BaseDAO {
     }
 
     public List<TuristaPreferencia> getAllTuristaPreferencias() throws SQLException {
-        return query(SELECT + " ORDER BY tp.ID_TURISTA, tp.PREFERENCIA", TuristaPreferenciaDAO::map);
+        return query(SELECT + " ORDER BY ID_TURISTA, PREFERENCIA", TuristaPreferenciaDAO::map);
     }
 
     public List<TuristaPreferencia> getTuristaPreferenciasByTurista(String idTurista) throws SQLException {
-        return query(SELECT + " WHERE tp.ID_TURISTA = ? ORDER BY tp.PREFERENCIA", TuristaPreferenciaDAO::map, idTurista);
+        return query(SELECT + " WHERE ID_TURISTA = ? ORDER BY PREFERENCIA", TuristaPreferenciaDAO::map, idTurista);
     }
 
     public TuristaPreferencia getTuristaPreferencia(String idTurista, String preferencia) throws SQLException {
-        return queryOne(SELECT + " WHERE tp.ID_TURISTA = ? AND tp.PREFERENCIA = ?", TuristaPreferenciaDAO::map,
+        return queryOne(SELECT + " WHERE ID_TURISTA = ? AND PREFERENCIA = ?", TuristaPreferenciaDAO::map,
                 idTurista, preferencia);
     }
 

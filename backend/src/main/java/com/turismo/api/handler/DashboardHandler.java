@@ -7,7 +7,7 @@ import java.io.IOException;
 import java.sql.SQLException;
 
 /**
- * GET /api/dashboard: totais por tabela, views do painel e views de verificação.
+ * GET /api/dashboard: views do painel e views de verificação.
  */
 public class DashboardHandler extends BaseHandler {
     private final DashboardDAO dashboardDAO;

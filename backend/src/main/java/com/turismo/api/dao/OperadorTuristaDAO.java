@@ -14,12 +14,9 @@ import java.util.List;
  */
 public class OperadorTuristaDAO extends BaseDAO {
 
-    private static final String SELECT =
-            "SELECT ot.ID_OPERADOR, ot.ID_TURISTA, ot.AVALIACAO_OPERADOR, o.NOME_OPERADOR, t.NOME_TURISTA "
-                    + "FROM OPERADOR_TURISTA ot "
-                    + "JOIN OPERADOR o ON o.ID_OPERADOR = ot.ID_OPERADOR "
-                    + "JOIN TURISTA t ON t.ID_TURISTA = ot.ID_TURISTA";
-    private static final String ORDER = " ORDER BY ot.ID_OPERADOR, ot.ID_TURISTA";
+    /** Leitura só da view v_lista_operador_turistas (database/views.sql), nunca da tabela. */
+    private static final String SELECT = "SELECT * FROM V_LISTA_OPERADOR_TURISTAS";
+    private static final String ORDER = " ORDER BY ID_OPERADOR, ID_TURISTA";
 
     public OperadorTuristaDAO() {
     }
@@ -33,15 +30,15 @@ public class OperadorTuristaDAO extends BaseDAO {
     }
 
     public List<OperadorTurista> getOperadorTuristasByOperador(String idOperador) throws SQLException {
-        return query(SELECT + " WHERE ot.ID_OPERADOR = ?" + ORDER, OperadorTuristaDAO::map, idOperador);
+        return query(SELECT + " WHERE ID_OPERADOR = ?" + ORDER, OperadorTuristaDAO::map, idOperador);
     }
 
     public List<OperadorTurista> getOperadorTuristasByTurista(String idTurista) throws SQLException {
-        return query(SELECT + " WHERE ot.ID_TURISTA = ?" + ORDER, OperadorTuristaDAO::map, idTurista);
+        return query(SELECT + " WHERE ID_TURISTA = ?" + ORDER, OperadorTuristaDAO::map, idTurista);
     }
 
     public OperadorTurista getOperadorTurista(String idOperador, String idTurista) throws SQLException {
-        return queryOne(SELECT + " WHERE ot.ID_OPERADOR = ? AND ot.ID_TURISTA = ?", OperadorTuristaDAO::map,
+        return queryOne(SELECT + " WHERE ID_OPERADOR = ? AND ID_TURISTA = ?", OperadorTuristaDAO::map,
                 idOperador, idTurista);
     }
 

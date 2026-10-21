@@ -13,12 +13,9 @@ import java.util.List;
  */
 public class OperadorTransporteDAO extends BaseDAO {
 
-    private static final String SELECT =
-            "SELECT ot.ID_OPERADOR, ot.ID_TRANSPORTE, o.NOME_OPERADOR, tr.TIPO_TRANSPORTE "
-                    + "FROM OPERADOR_TRANSPORTE ot "
-                    + "JOIN OPERADOR o ON o.ID_OPERADOR = ot.ID_OPERADOR "
-                    + "JOIN TRANSPORTE tr ON tr.ID_TRANSPORTE = ot.ID_TRANSPORTE";
-    private static final String ORDER = " ORDER BY ot.ID_OPERADOR, ot.ID_TRANSPORTE";
+    /** Leitura só da view v_lista_operador_transportes (database/views.sql), nunca da tabela. */
+    private static final String SELECT = "SELECT * FROM V_LISTA_OPERADOR_TRANSPORTES";
+    private static final String ORDER = " ORDER BY ID_OPERADOR, ID_TRANSPORTE";
 
     public OperadorTransporteDAO() {
     }
@@ -32,15 +29,15 @@ public class OperadorTransporteDAO extends BaseDAO {
     }
 
     public List<OperadorTransporte> getOperadorTransportesByOperador(String idOperador) throws SQLException {
-        return query(SELECT + " WHERE ot.ID_OPERADOR = ?" + ORDER, OperadorTransporteDAO::map, idOperador);
+        return query(SELECT + " WHERE ID_OPERADOR = ?" + ORDER, OperadorTransporteDAO::map, idOperador);
     }
 
     public List<OperadorTransporte> getOperadorTransportesByTransporte(String idTransporte) throws SQLException {
-        return query(SELECT + " WHERE ot.ID_TRANSPORTE = ?" + ORDER, OperadorTransporteDAO::map, idTransporte);
+        return query(SELECT + " WHERE ID_TRANSPORTE = ?" + ORDER, OperadorTransporteDAO::map, idTransporte);
     }
 
     public OperadorTransporte getOperadorTransporte(String idOperador, String idTransporte) throws SQLException {
-        return queryOne(SELECT + " WHERE ot.ID_OPERADOR = ? AND ot.ID_TRANSPORTE = ?", OperadorTransporteDAO::map,
+        return queryOne(SELECT + " WHERE ID_OPERADOR = ? AND ID_TRANSPORTE = ?", OperadorTransporteDAO::map,
                 idOperador, idTransporte);
     }
 

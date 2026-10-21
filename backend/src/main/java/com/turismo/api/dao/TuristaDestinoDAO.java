@@ -17,12 +17,9 @@ import java.util.List;
  */
 public class TuristaDestinoDAO extends BaseDAO {
 
-    private static final String SELECT =
-            "SELECT td.ID_DESTINO, td.ID_TURISTA, td.DATA_VISITA, d.NOME_DESTINO, t.NOME_TURISTA "
-                    + "FROM TURISTA_DESTINO td "
-                    + "JOIN DESTINO d ON d.ID_DESTINO = td.ID_DESTINO "
-                    + "JOIN TURISTA t ON t.ID_TURISTA = td.ID_TURISTA";
-    private static final String ORDER = " ORDER BY td.DATA_VISITA DESC, td.ID_DESTINO, td.ID_TURISTA";
+    /** Leitura só da view v_lista_visitas (database/views.sql), nunca da tabela. */
+    private static final String SELECT = "SELECT * FROM V_LISTA_VISITAS";
+    private static final String ORDER = " ORDER BY DATA_VISITA DESC, ID_DESTINO, ID_TURISTA";
 
     public TuristaDestinoDAO() {
     }
@@ -36,15 +33,15 @@ public class TuristaDestinoDAO extends BaseDAO {
     }
 
     public List<TuristaDestino> getTuristaDestinosByTurista(String idTurista) throws SQLException {
-        return query(SELECT + " WHERE td.ID_TURISTA = ?" + ORDER, TuristaDestinoDAO::map, idTurista);
+        return query(SELECT + " WHERE ID_TURISTA = ?" + ORDER, TuristaDestinoDAO::map, idTurista);
     }
 
     public List<TuristaDestino> getTuristaDestinosByDestino(String idDestino) throws SQLException {
-        return query(SELECT + " WHERE td.ID_DESTINO = ?" + ORDER, TuristaDestinoDAO::map, idDestino);
+        return query(SELECT + " WHERE ID_DESTINO = ?" + ORDER, TuristaDestinoDAO::map, idDestino);
     }
 
     public TuristaDestino getTuristaDestino(String idDestino, String idTurista, LocalDate dataVisita) throws SQLException {
-        return queryOne(SELECT + " WHERE td.ID_DESTINO = ? AND td.ID_TURISTA = ? AND td.DATA_VISITA = ?",
+        return queryOne(SELECT + " WHERE ID_DESTINO = ? AND ID_TURISTA = ? AND DATA_VISITA = ?",
                 TuristaDestinoDAO::map, idDestino, idTurista, dataVisita);
     }
 

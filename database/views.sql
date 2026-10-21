@@ -2,7 +2,15 @@
 -- TRABALHO PRÁTICO - BASE DE DADOS I (ISCTEM 2026)
 -- GRUPO 1: GESTÃO DE TURISMO EM MOÇAMBIQUE
 -- SCRIPT DE VIEWS (Oracle 10g XE)
--- Executar depois de tabelas.sql
+-- Executar depois de tabelas.sql e de functions.sql (as views de listagem
+-- 25 a 39 usam funções de functions.sql)
+--
+-- Views 1 a 24: consultas e verificações (relatórios e painel da aplicação).
+-- Views 25 a 39: uma view de listagem por tabela. A aplicação lê todos os
+-- dados que mostra destas views e nunca diretamente das tabelas; as tabelas
+-- só são usadas para inserir, alterar e apagar.
+--
+-- Criar views exige o privilégio CREATE VIEW (ver conceder_privilegios.sql).
 -- ============================================================
 
 SET LINESIZE 200
@@ -290,6 +298,193 @@ where ID_turista not in (select ID_turista from Reserva)
 with read only;
 
 
+-- ============================================================
+-- VIEWS DE LISTAGEM (uma por tabela, usadas pelas páginas da aplicação)
+-- ============================================================
+
+-- 25. Destinos, com o número de atrações, alojamentos e visitas de cada um.
+create or replace view v_lista_destinos as
+select d.ID_destino,
+       d.nome_destino,
+       d.regiao,
+       d.capacidade_visitantes,
+       (select count(*) from Atracao a where a.ID_destino = d.ID_destino)          as total_atracoes,
+       (select count(*) from Alojamento a where a.ID_destino = d.ID_destino)       as total_alojamentos,
+       (select count(*) from Turista_Destino td where td.ID_destino = d.ID_destino) as total_visitas
+from Destino d
+with read only;
+
+-- 26. Atrações, com o nome do destino.
+create or replace view v_lista_atracoes as
+select a.ID_atracao,
+       a.tipo_atracao,
+       a.descricao,
+       a.hora_abertura,
+       a.hora_fecho,
+       a.hora_abertura_especial,
+       a.hora_fecho_especial,
+       a.detalhes_horario_especial,
+       a.ID_destino,
+       d.nome_destino
+from Atracao a
+join Destino d on d.ID_destino = a.ID_destino
+with read only;
+
+-- 27. Alojamentos, com o destino, a capacidade (função Capacidade_Alojamento)
+--     e a média das avaliações (função Media_Avaliacao_Alojamento).
+create or replace view v_lista_alojamentos as
+select a.ID_alojamento,
+       a.nome_alojamento,
+       a.class_alojamento,
+       a.tipo_alojamento,
+       a.ID_destino,
+       d.nome_destino,
+       Capacidade_Alojamento(a.ID_alojamento)      as cap_alojamento,
+       Media_Avaliacao_Alojamento(a.ID_alojamento) as media_avaliacoes
+from Alojamento a
+join Destino d on d.ID_destino = a.ID_destino
+with read only;
+
+-- 28. Tipos de alojamento, com o número de alojamentos de cada tipo.
+create or replace view v_lista_tipos_alojamento as
+select t.tipo_alojamento,
+       t.cap_alojamento,
+       (select count(*) from Alojamento a where a.tipo_alojamento = t.tipo_alojamento) as total_alojamentos
+from Tipo_Alojamento t
+with read only;
+
+-- 29. Transportes, com o número de operadores de cada um.
+create or replace view v_lista_transportes as
+select t.ID_transporte,
+       t.tipo_transporte,
+       t.cap_transporte,
+       t.disponibilidade,
+       (select count(*) from Operador_Transporte ot where ot.ID_transporte = t.ID_transporte) as total_operadores
+from Transporte t
+with read only;
+
+-- 30. Turistas, com o número de reservas de cada um.
+create or replace view v_lista_turistas as
+select t.ID_turista,
+       t.nome_turista,
+       t.nacionalidade,
+       (select count(*) from Reserva r where r.ID_turista = t.ID_turista) as total_reservas
+from Turista t
+with read only;
+
+-- 31. Preferências de viagem, com o nome do turista.
+create or replace view v_lista_preferencias as
+select tp.ID_turista,
+       tp.preferencia,
+       t.nome_turista
+from Turista_Preferencia tp
+join Turista t on t.ID_turista = tp.ID_turista
+with read only;
+
+-- 32. Operadores, com o número de turistas acompanhados e a média das
+--     avaliações (função Media_Avaliacao_Operador).
+create or replace view v_lista_operadores as
+select o.ID_operador,
+       o.nome_operador,
+       o.especialidade,
+       o.class_operador,
+       (select count(*) from Operador_Turista ot where ot.ID_operador = o.ID_operador) as total_turistas,
+       Media_Avaliacao_Operador(o.ID_operador) as media_avaliacao
+from Operador o
+with read only;
+
+-- 33. Reservas, com o turista, as noites, o total pago (função
+--     Total_Pago_Reserva) e se está completa (função Reserva_Completa).
+create or replace view v_lista_reservas as
+select r.ID_reserva,
+       r.data_chegada,
+       r.data_partida,
+       r.status_reserva,
+       r.ID_turista,
+       t.nome_turista,
+       r.data_partida - r.data_chegada  as noites,
+       Total_Pago_Reserva(r.ID_reserva) as total_pago,
+       Reserva_Completa(r.ID_reserva)   as estado_completude
+from Reserva r
+join Turista t on t.ID_turista = r.ID_turista
+with read only;
+
+-- 34. Pagamentos, com o nome do turista da reserva.
+create or replace view v_lista_pagamentos as
+select p.ID_pagamento,
+       p.valor,
+       p.data_pagamento,
+       p.metodo_pagamento,
+       p.status_pagamento,
+       p.ID_recibo,
+       p.detalhes_transacao,
+       p.ID_reserva,
+       t.nome_turista
+from Pagamento p
+join Reserva r on r.ID_reserva = p.ID_reserva
+join Turista t on t.ID_turista = r.ID_turista
+with read only;
+
+-- 35. Visitas de turistas a destinos, com os nomes.
+create or replace view v_lista_visitas as
+select td.ID_destino,
+       td.ID_turista,
+       td.data_visita,
+       d.nome_destino,
+       t.nome_turista
+from Turista_Destino td
+join Destino d on d.ID_destino = td.ID_destino
+join Turista t on t.ID_turista = td.ID_turista
+with read only;
+
+-- 36. Alojamentos de cada reserva, com a avaliação e os nomes.
+create or replace view v_lista_reserva_alojamentos as
+select ra.ID_reserva,
+       ra.ID_alojamento,
+       ra.avaliacao_alojamento,
+       a.nome_alojamento,
+       t.nome_turista
+from Reserva_Alojamento ra
+join Alojamento a on a.ID_alojamento = ra.ID_alojamento
+join Reserva r    on r.ID_reserva = ra.ID_reserva
+join Turista t    on t.ID_turista = r.ID_turista
+with read only;
+
+-- 37. Operadores que acompanham cada turista, com a avaliação e os nomes.
+create or replace view v_lista_operador_turistas as
+select ot.ID_operador,
+       ot.ID_turista,
+       ot.avaliacao_operador,
+       o.nome_operador,
+       t.nome_turista
+from Operador_Turista ot
+join Operador o on o.ID_operador = ot.ID_operador
+join Turista t  on t.ID_turista = ot.ID_turista
+with read only;
+
+-- 38. Transportes de cada operador, com os nomes.
+create or replace view v_lista_operador_transportes as
+select ot.ID_operador, 
+       ot.ID_transporte,
+       o.nome_operador,
+       tr.tipo_transporte
+from Operador_Transporte ot
+join Operador o    on o.ID_operador = ot.ID_operador
+join Transporte tr on tr.ID_transporte = ot.ID_transporte
+with read only;
+
+-- 39. Alojamentos de cada operador, com os nomes.
+create or replace view v_lista_operador_alojamentos as
+select oa.ID_operador,
+       oa.ID_alojamento,
+       o.nome_operador,
+       a.nome_alojamento
+from Operador_Alojamento oa
+join Operador o   on o.ID_operador = oa.ID_operador
+join Alojamento a on a.ID_alojamento = oa.ID_alojamento
+with read only;
+
+
 -- Testes: lista as views criadas e mostra o conteúdo de cada uma
 select view_name from user_views order by view_name;
 
@@ -317,3 +512,18 @@ select * from v_reservas_sem_alojamento;
 select * from v_reservas_sem_pagamento;
 select * from v_alojamentos_acima_media;
 select * from v_turistas_sem_reserva;
+select * from v_lista_destinos;
+select * from v_lista_atracoes;
+select * from v_lista_alojamentos;
+select * from v_lista_tipos_alojamento;
+select * from v_lista_transportes;
+select * from v_lista_turistas;
+select * from v_lista_preferencias;
+select * from v_lista_operadores;
+select * from v_lista_reservas;
+select * from v_lista_pagamentos;
+select * from v_lista_visitas;
+select * from v_lista_reserva_alojamentos;
+select * from v_lista_operador_turistas;
+select * from v_lista_operador_transportes;
+select * from v_lista_operador_alojamentos;

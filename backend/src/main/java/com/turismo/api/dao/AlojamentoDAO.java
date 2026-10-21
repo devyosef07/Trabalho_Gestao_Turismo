@@ -9,15 +9,15 @@ import java.util.List;
 
 /**
  * Data Access Object for Alojamento entity
+ *
+ * Na view v_lista_alojamentos a capacidade vem da função Capacidade_Alojamento
+ * (lê-a do tipo de alojamento) e a média das avaliações da função
+ * Media_Avaliacao_Alojamento.
  */
 public class AlojamentoDAO extends BaseDAO {
 
-    private static final String SELECT =
-            "SELECT a.ID_ALOJAMENTO, a.NOME_ALOJAMENTO, a.CLASS_ALOJAMENTO, a.TIPO_ALOJAMENTO, a.ID_DESTINO, "
-                    + "d.NOME_DESTINO, t.CAP_ALOJAMENTO, Media_Avaliacao_Alojamento(a.ID_ALOJAMENTO) AS MEDIA_AVALIACOES "
-                    + "FROM ALOJAMENTO a "
-                    + "JOIN DESTINO d ON d.ID_DESTINO = a.ID_DESTINO "
-                    + "JOIN TIPO_ALOJAMENTO t ON t.TIPO_ALOJAMENTO = a.TIPO_ALOJAMENTO";
+    /** Leitura só da view v_lista_alojamentos (database/views.sql), nunca da tabela. */
+    private static final String SELECT = "SELECT * FROM V_LISTA_ALOJAMENTOS";
 
     public AlojamentoDAO() {
     }
@@ -27,15 +27,15 @@ public class AlojamentoDAO extends BaseDAO {
     }
 
     public List<Alojamento> getAllAlojamentos() throws SQLException {
-        return query(SELECT + " ORDER BY a.ID_ALOJAMENTO", AlojamentoDAO::map);
+        return query(SELECT + " ORDER BY ID_ALOJAMENTO", AlojamentoDAO::map);
     }
 
     public Alojamento getAlojamentoById(String id) throws SQLException {
-        return queryOne(SELECT + " WHERE a.ID_ALOJAMENTO = ?", AlojamentoDAO::map, id);
+        return queryOne(SELECT + " WHERE ID_ALOJAMENTO = ?", AlojamentoDAO::map, id);
     }
 
     public List<Alojamento> getAlojamentosByDestino(String idDestino) throws SQLException {
-        return query(SELECT + " WHERE a.ID_DESTINO = ? ORDER BY a.ID_ALOJAMENTO", AlojamentoDAO::map, idDestino);
+        return query(SELECT + " WHERE ID_DESTINO = ? ORDER BY ID_ALOJAMENTO", AlojamentoDAO::map, idDestino);
     }
 
     public String addAlojamento(Alojamento a) throws SQLException {

@@ -12,11 +12,8 @@ import java.util.List;
  */
 public class OperadorDAO extends BaseDAO {
 
-    private static final String SELECT =
-            "SELECT o.ID_OPERADOR, o.NOME_OPERADOR, o.ESPECIALIDADE, o.CLASS_OPERADOR, "
-                    + "(SELECT COUNT(*) FROM OPERADOR_TURISTA ot WHERE ot.ID_OPERADOR = o.ID_OPERADOR) AS TOTAL_TURISTAS, "
-                    + "Media_Avaliacao_Operador(o.ID_OPERADOR) AS MEDIA_AVALIACAO "
-                    + "FROM OPERADOR o";
+    /** Leitura só da view v_lista_operadores (database/views.sql), nunca da tabela. */
+    private static final String SELECT = "SELECT * FROM V_LISTA_OPERADORES";
 
     public OperadorDAO() {
     }
@@ -26,11 +23,11 @@ public class OperadorDAO extends BaseDAO {
     }
 
     public List<Operador> getAllOperadores() throws SQLException {
-        return query(SELECT + " ORDER BY o.ID_OPERADOR", OperadorDAO::map);
+        return query(SELECT + " ORDER BY ID_OPERADOR", OperadorDAO::map);
     }
 
     public Operador getOperadorById(String id) throws SQLException {
-        return queryOne(SELECT + " WHERE o.ID_OPERADOR = ?", OperadorDAO::map, id);
+        return queryOne(SELECT + " WHERE ID_OPERADOR = ?", OperadorDAO::map, id);
     }
 
     public String addOperador(Operador o) throws SQLException {

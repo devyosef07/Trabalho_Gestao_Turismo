@@ -64,15 +64,24 @@ class LiveApplicationE2ETest {
 
     @Test
     @Order(1)
-    void painelMostraOsTotaisReaisDaBd() throws ApiException {
+    void painelMostraOsTotaisDasViews() throws ApiException {
         DashboardPage page = (DashboardPage) edt(() -> window.page(MainWindow.DASHBOARD));
         waitFor("painel carregado", 20_000, () -> !page.isLoading() && !page.totalText("destinos").equals("…"));
-        JsonObject totais = api.getObject("/dashboard").getAsJsonObject("totais");
-        assertEquals(totais.get("destinos").getAsString(), edt(() -> page.totalText("destinos")));
-        assertEquals(totais.get("turistas").getAsString(), edt(() -> page.totalText("turistas")));
-        assertEquals(totais.get("reservas").getAsString(), edt(() -> page.totalText("reservas")));
+        JsonObject views = api.getObject("/dashboard").getAsJsonObject("views");
+        assertEquals(rowsOf(views, "v_total_atracoes_destino"), edt(() -> page.totalText("destinos")));
+        assertEquals(rowsOf(views, "v_reservas_ativas"), edt(() -> page.totalText("reservasAtivas")));
+        assertEquals(rowsOf(views, "v_avaliacao_operador"), edt(() -> page.totalText("operadores")));
         waitFor("barra de estado", 10_000, () -> window.statusBar().getConnectionText().startsWith("Ligado a"));
         SwingTestSupport.screenshot(window.getRootPane(), "00-painel");
+    }
+
+    /** Número de linhas da view, como o painel o mostra ("—" se a view não existir). */
+    private static String rowsOf(JsonObject views, String view) {
+        JsonObject section = views.getAsJsonObject(view);
+        if (!section.get("ok").getAsBoolean()) {
+            return "—";
+        }
+        return String.valueOf(section.getAsJsonObject("data").getAsJsonArray("rows").size());
     }
 
     @Test

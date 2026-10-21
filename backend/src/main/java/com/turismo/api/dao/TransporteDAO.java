@@ -12,10 +12,8 @@ import java.util.List;
  */
 public class TransporteDAO extends BaseDAO {
 
-    private static final String SELECT =
-            "SELECT t.ID_TRANSPORTE, t.TIPO_TRANSPORTE, t.CAP_TRANSPORTE, t.DISPONIBILIDADE, "
-                    + "(SELECT COUNT(*) FROM OPERADOR_TRANSPORTE ot WHERE ot.ID_TRANSPORTE = t.ID_TRANSPORTE) AS TOTAL_OPERADORES "
-                    + "FROM TRANSPORTE t";
+    /** Leitura só da view v_lista_transportes (database/views.sql), nunca da tabela. */
+    private static final String SELECT = "SELECT * FROM V_LISTA_TRANSPORTES";
 
     public TransporteDAO() {
     }
@@ -25,11 +23,11 @@ public class TransporteDAO extends BaseDAO {
     }
 
     public List<Transporte> getAllTransportes() throws SQLException {
-        return query(SELECT + " ORDER BY t.ID_TRANSPORTE", TransporteDAO::map);
+        return query(SELECT + " ORDER BY ID_TRANSPORTE", TransporteDAO::map);
     }
 
     public Transporte getTransporteById(String id) throws SQLException {
-        return queryOne(SELECT + " WHERE t.ID_TRANSPORTE = ?", TransporteDAO::map, id);
+        return queryOne(SELECT + " WHERE ID_TRANSPORTE = ?", TransporteDAO::map, id);
     }
 
     public String addTransporte(Transporte t) throws SQLException {

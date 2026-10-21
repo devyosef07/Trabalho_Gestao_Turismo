@@ -13,10 +13,8 @@ import java.util.List;
  */
 public class TipoAlojamentoDAO extends BaseDAO {
 
-    private static final String SELECT =
-            "SELECT t.TIPO_ALOJAMENTO, t.CAP_ALOJAMENTO, "
-                    + "(SELECT COUNT(*) FROM ALOJAMENTO a WHERE a.TIPO_ALOJAMENTO = t.TIPO_ALOJAMENTO) AS TOTAL_ALOJAMENTOS "
-                    + "FROM TIPO_ALOJAMENTO t";
+    /** Leitura só da view v_lista_tipos_alojamento (database/views.sql), nunca da tabela. */
+    private static final String SELECT = "SELECT * FROM V_LISTA_TIPOS_ALOJAMENTO";
 
     public TipoAlojamentoDAO() {
     }
@@ -26,11 +24,11 @@ public class TipoAlojamentoDAO extends BaseDAO {
     }
 
     public List<TipoAlojamento> getAllTipoAlojamentos() throws SQLException {
-        return query(SELECT + " ORDER BY t.TIPO_ALOJAMENTO", TipoAlojamentoDAO::map);
+        return query(SELECT + " ORDER BY TIPO_ALOJAMENTO", TipoAlojamentoDAO::map);
     }
 
     public TipoAlojamento getTipoAlojamentoById(String tipo) throws SQLException {
-        return queryOne(SELECT + " WHERE t.TIPO_ALOJAMENTO = ?", TipoAlojamentoDAO::map, tipo);
+        return queryOne(SELECT + " WHERE TIPO_ALOJAMENTO = ?", TipoAlojamentoDAO::map, tipo);
     }
 
     /** Usa a procedure definir_tipo_alojamento. */

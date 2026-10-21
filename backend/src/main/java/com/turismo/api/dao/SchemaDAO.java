@@ -15,6 +15,20 @@ import java.util.Map;
  */
 public class SchemaDAO extends BaseDAO {
 
+    /** Views de listagem (views 25 a 39 de database/views.sql), uma por tabela. */
+    public static final List<String> LIST_VIEWS = List.of(
+            "v_lista_destinos", "v_lista_atracoes", "v_lista_alojamentos", "v_lista_tipos_alojamento",
+            "v_lista_transportes", "v_lista_turistas", "v_lista_preferencias", "v_lista_operadores",
+            "v_lista_reservas", "v_lista_pagamentos", "v_lista_visitas", "v_lista_reserva_alojamentos",
+            "v_lista_operador_turistas", "v_lista_operador_transportes", "v_lista_operador_alojamentos");
+
+    /** As 24 views de relatório seguidas das 15 de listagem. */
+    public static List<String> expectedViews() {
+        List<String> all = new ArrayList<>(RelatorioDAO.VIEWS.keySet());
+        all.addAll(LIST_VIEWS);
+        return all;
+    }
+
     public SchemaDAO() {
     }
 
@@ -40,12 +54,13 @@ public class SchemaDAO extends BaseDAO {
 
             List<String> present = query(c, "SELECT LOWER(view_name) FROM user_views", rs -> rs.getString(1));
             List<String> missing = new ArrayList<>();
-            for (String view : RelatorioDAO.VIEWS.keySet()) {
+            List<String> expected = expectedViews();
+            for (String view : expected) {
                 if (!present.contains(view)) {
                     missing.add(view);
                 }
             }
-            result.put("viewsEsperadas", RelatorioDAO.VIEWS.size());
+            result.put("viewsEsperadas", expected.size());
             result.put("viewsEmFalta", missing);
             return result;
         }

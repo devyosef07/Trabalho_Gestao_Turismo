@@ -13,12 +13,9 @@ import java.util.List;
  */
 public class OperadorAlojamentoDAO extends BaseDAO {
 
-    private static final String SELECT =
-            "SELECT oa.ID_OPERADOR, oa.ID_ALOJAMENTO, o.NOME_OPERADOR, a.NOME_ALOJAMENTO "
-                    + "FROM OPERADOR_ALOJAMENTO oa "
-                    + "JOIN OPERADOR o ON o.ID_OPERADOR = oa.ID_OPERADOR "
-                    + "JOIN ALOJAMENTO a ON a.ID_ALOJAMENTO = oa.ID_ALOJAMENTO";
-    private static final String ORDER = " ORDER BY oa.ID_OPERADOR, oa.ID_ALOJAMENTO";
+    /** Leitura só da view v_lista_operador_alojamentos (database/views.sql), nunca da tabela. */
+    private static final String SELECT = "SELECT * FROM V_LISTA_OPERADOR_ALOJAMENTOS";
+    private static final String ORDER = " ORDER BY ID_OPERADOR, ID_ALOJAMENTO";
 
     public OperadorAlojamentoDAO() {
     }
@@ -32,15 +29,15 @@ public class OperadorAlojamentoDAO extends BaseDAO {
     }
 
     public List<OperadorAlojamento> getOperadorAlojamentosByOperador(String idOperador) throws SQLException {
-        return query(SELECT + " WHERE oa.ID_OPERADOR = ?" + ORDER, OperadorAlojamentoDAO::map, idOperador);
+        return query(SELECT + " WHERE ID_OPERADOR = ?" + ORDER, OperadorAlojamentoDAO::map, idOperador);
     }
 
     public List<OperadorAlojamento> getOperadorAlojamentosByAlojamento(String idAlojamento) throws SQLException {
-        return query(SELECT + " WHERE oa.ID_ALOJAMENTO = ?" + ORDER, OperadorAlojamentoDAO::map, idAlojamento);
+        return query(SELECT + " WHERE ID_ALOJAMENTO = ?" + ORDER, OperadorAlojamentoDAO::map, idAlojamento);
     }
 
     public OperadorAlojamento getOperadorAlojamento(String idOperador, String idAlojamento) throws SQLException {
-        return queryOne(SELECT + " WHERE oa.ID_OPERADOR = ? AND oa.ID_ALOJAMENTO = ?", OperadorAlojamentoDAO::map,
+        return queryOne(SELECT + " WHERE ID_OPERADOR = ? AND ID_ALOJAMENTO = ?", OperadorAlojamentoDAO::map,
                 idOperador, idAlojamento);
     }
 

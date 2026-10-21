@@ -14,13 +14,9 @@ import java.util.List;
  */
 public class ReservaAlojamentoDAO extends BaseDAO {
 
-    private static final String SELECT =
-            "SELECT ra.ID_RESERVA, ra.ID_ALOJAMENTO, ra.AVALIACAO_ALOJAMENTO, a.NOME_ALOJAMENTO, t.NOME_TURISTA "
-                    + "FROM RESERVA_ALOJAMENTO ra "
-                    + "JOIN ALOJAMENTO a ON a.ID_ALOJAMENTO = ra.ID_ALOJAMENTO "
-                    + "JOIN RESERVA r ON r.ID_RESERVA = ra.ID_RESERVA "
-                    + "JOIN TURISTA t ON t.ID_TURISTA = r.ID_TURISTA";
-    private static final String ORDER = " ORDER BY ra.ID_RESERVA, ra.ID_ALOJAMENTO";
+    /** Leitura só da view v_lista_reserva_alojamentos (database/views.sql), nunca da tabela. */
+    private static final String SELECT = "SELECT * FROM V_LISTA_RESERVA_ALOJAMENTOS";
+    private static final String ORDER = " ORDER BY ID_RESERVA, ID_ALOJAMENTO";
 
     public ReservaAlojamentoDAO() {
     }
@@ -34,15 +30,15 @@ public class ReservaAlojamentoDAO extends BaseDAO {
     }
 
     public List<ReservaAlojamento> getReservaAlojamentosByReserva(String idReserva) throws SQLException {
-        return query(SELECT + " WHERE ra.ID_RESERVA = ?" + ORDER, ReservaAlojamentoDAO::map, idReserva);
+        return query(SELECT + " WHERE ID_RESERVA = ?" + ORDER, ReservaAlojamentoDAO::map, idReserva);
     }
 
     public List<ReservaAlojamento> getReservaAlojamentosByAlojamento(String idAlojamento) throws SQLException {
-        return query(SELECT + " WHERE ra.ID_ALOJAMENTO = ?" + ORDER, ReservaAlojamentoDAO::map, idAlojamento);
+        return query(SELECT + " WHERE ID_ALOJAMENTO = ?" + ORDER, ReservaAlojamentoDAO::map, idAlojamento);
     }
 
     public ReservaAlojamento getReservaAlojamento(String idReserva, String idAlojamento) throws SQLException {
-        return queryOne(SELECT + " WHERE ra.ID_RESERVA = ? AND ra.ID_ALOJAMENTO = ?", ReservaAlojamentoDAO::map,
+        return queryOne(SELECT + " WHERE ID_RESERVA = ? AND ID_ALOJAMENTO = ?", ReservaAlojamentoDAO::map,
                 idReserva, idAlojamento);
     }
 

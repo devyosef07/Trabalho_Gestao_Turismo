@@ -155,7 +155,8 @@ public class ReportPanel extends JPanel {
                 stateView.unreachable(error.getMessage(), this::reload);
             } else if (error instanceof ApiException && "OBJETO_INEXISTENTE".equals(((ApiException) error).getCode())) {
                 stateView.unavailable("A view " + spec.view + " não existe na base de dados",
-                        "Aplique o script database/correcoes.sql para criar as views de views.sql.");
+                        "O SYSTEM tem de correr database/conceder_privilegios.sql (CREATE VIEW) e depois "
+                                + "executa-se database/views.sql.");
             } else {
                 stateView.error("Não foi possível ler a view " + spec.view, error.getMessage(), this::reload);
             }

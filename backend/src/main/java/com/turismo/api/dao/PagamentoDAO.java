@@ -17,12 +17,8 @@ import java.util.List;
  */
 public class PagamentoDAO extends BaseDAO {
 
-    private static final String SELECT =
-            "SELECT p.ID_PAGAMENTO, p.VALOR, p.DATA_PAGAMENTO, p.METODO_PAGAMENTO, p.STATUS_PAGAMENTO, p.ID_RECIBO, "
-                    + "p.DETALHES_TRANSACAO, p.ID_RESERVA, t.NOME_TURISTA "
-                    + "FROM PAGAMENTO p "
-                    + "JOIN RESERVA r ON r.ID_RESERVA = p.ID_RESERVA "
-                    + "JOIN TURISTA t ON t.ID_TURISTA = r.ID_TURISTA";
+    /** Leitura só da view v_lista_pagamentos (database/views.sql), nunca da tabela. */
+    private static final String SELECT = "SELECT * FROM V_LISTA_PAGAMENTOS";
 
     public PagamentoDAO() {
     }
@@ -32,15 +28,15 @@ public class PagamentoDAO extends BaseDAO {
     }
 
     public List<Pagamento> getAllPagamentos() throws SQLException {
-        return query(SELECT + " ORDER BY p.ID_PAGAMENTO", PagamentoDAO::map);
+        return query(SELECT + " ORDER BY ID_PAGAMENTO", PagamentoDAO::map);
     }
 
     public Pagamento getPagamentoById(String id) throws SQLException {
-        return queryOne(SELECT + " WHERE p.ID_PAGAMENTO = ?", PagamentoDAO::map, id);
+        return queryOne(SELECT + " WHERE ID_PAGAMENTO = ?", PagamentoDAO::map, id);
     }
 
     public List<Pagamento> getPagamentosByReserva(String idReserva) throws SQLException {
-        return query(SELECT + " WHERE p.ID_RESERVA = ? ORDER BY p.ID_PAGAMENTO", PagamentoDAO::map, idReserva);
+        return query(SELECT + " WHERE ID_RESERVA = ? ORDER BY ID_PAGAMENTO", PagamentoDAO::map, idReserva);
     }
 
     /** SQL direto: a procedure registrar_pagamento está INVALID na BD. */
@@ -69,7 +65,7 @@ public class PagamentoDAO extends BaseDAO {
 
     /** Usa a função Valor_Em_Dolar com a cotação indicada (meticais por dólar). */
     public BigDecimal valorEmDolar(String id, BigDecimal cotacao) throws SQLException {
-        return queryOne("SELECT Valor_Em_Dolar(VALOR, ?) AS VALOR_USD FROM PAGAMENTO WHERE ID_PAGAMENTO = ?",
+        return queryOne("SELECT Valor_Em_Dolar(VALOR, ?) AS VALOR_USD FROM V_LISTA_PAGAMENTOS WHERE ID_PAGAMENTO = ?",
                 rs -> rs.getBigDecimal("VALOR_USD"), cotacao, id);
     }
 

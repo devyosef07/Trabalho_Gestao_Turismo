@@ -15,11 +15,8 @@ import java.util.Map;
  */
 public class DestinoDAO extends BaseDAO {
 
-    private static final String SELECT =
-            "SELECT d.ID_DESTINO, d.NOME_DESTINO, d.REGIAO, d.CAPACIDADE_VISITANTES, "
-                    + "(SELECT COUNT(*) FROM ATRACAO a WHERE a.ID_DESTINO = d.ID_DESTINO) AS TOTAL_ATRACOES, "
-                    + "(SELECT COUNT(*) FROM ALOJAMENTO a WHERE a.ID_DESTINO = d.ID_DESTINO) AS TOTAL_ALOJAMENTOS "
-                    + "FROM DESTINO d";
+    /** Leitura só da view v_lista_destinos (database/views.sql), nunca da tabela. */
+    private static final String SELECT = "SELECT * FROM V_LISTA_DESTINOS";
 
     public DestinoDAO() {
     }
@@ -29,11 +26,11 @@ public class DestinoDAO extends BaseDAO {
     }
 
     public List<Destino> getAllDestinos() throws SQLException {
-        return query(SELECT + " ORDER BY d.ID_DESTINO", DestinoDAO::map);
+        return query(SELECT + " ORDER BY ID_DESTINO", DestinoDAO::map);
     }
 
     public Destino getDestinoById(String id) throws SQLException {
-        return queryOne(SELECT + " WHERE d.ID_DESTINO = ?", DestinoDAO::map, id);
+        return queryOne(SELECT + " WHERE ID_DESTINO = ?", DestinoDAO::map, id);
     }
 
     /** Insere o destino e devolve o identificador gerado pela sequência ID_destino. */
@@ -53,18 +50,26 @@ public class DestinoDAO extends BaseDAO {
         return update("DELETE FROM DESTINO WHERE ID_DESTINO = ?", id) > 0;
     }
 
-    /** Registos que o trigger deleteDestino apaga em cascata (para avisar antes de apagar). */
+    /**
+     * Registos que o trigger deleteDestino apaga em cascata (para avisar antes de apagar),
+     * lidos da view v_lista_destinos. Um destino inexistente não tem dependentes.
+     */
     public Map<String, Integer> getDependencias(String id) throws SQLException {
-        String sql = "SELECT (SELECT COUNT(*) FROM ATRACAO WHERE ID_DESTINO = ?) AS ATRACOES, "
-                + "(SELECT COUNT(*) FROM ALOJAMENTO WHERE ID_DESTINO = ?) AS ALOJAMENTOS, "
-                + "(SELECT COUNT(*) FROM TURISTA_DESTINO WHERE ID_DESTINO = ?) AS VISITAS FROM dual";
-        return queryOne(sql, rs -> {
-            Map<String, Integer> result = new LinkedHashMap<>();
-            result.put("atracoes", rs.getInt("ATRACOES"));
-            result.put("alojamentos", rs.getInt("ALOJAMENTOS"));
-            result.put("visitas", rs.getInt("VISITAS"));
-            return result;
-        }, id, id, id);
+        Map<String, Integer> result = queryOne(
+                "SELECT TOTAL_ATRACOES, TOTAL_ALOJAMENTOS, TOTAL_VISITAS FROM V_LISTA_DESTINOS WHERE ID_DESTINO = ?", rs -> {
+                    Map<String, Integer> r = new LinkedHashMap<>();
+                    r.put("atracoes", rs.getInt("TOTAL_ATRACOES"));
+                    r.put("alojamentos", rs.getInt("TOTAL_ALOJAMENTOS"));
+                    r.put("visitas", rs.getInt("TOTAL_VISITAS"));
+                    return r;
+                }, id);
+        if (result == null) {
+            result = new LinkedHashMap<>();
+            result.put("atracoes", 0);
+            result.put("alojamentos", 0);
+            result.put("visitas", 0);
+        }
+        return result;
     }
 
     /** Texto das funções Retorna_Info_Destino e Lista_Atracoes_Destino. */

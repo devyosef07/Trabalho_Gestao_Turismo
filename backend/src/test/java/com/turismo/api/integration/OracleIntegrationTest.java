@@ -85,10 +85,25 @@ class OracleIntegrationTest {
         return (List<String>) schema.get("viewsEmFalta");
     }
 
+    /** As listagens leem das views v_lista_*; sem elas (falta o GRANT CREATE VIEW) o teste é saltado. */
+    private static void requireListViews() {
+        assumeTrue(SchemaDAO.LIST_VIEWS.stream().noneMatch(missingViews()::contains),
+                "views de listagem em falta (database/conceder_privilegios.sql e views.sql)");
+    }
+
     // --------------------------------------------------------- leitura
 
     @Test
+    void listagensFalhamComoViewEmFaltaSemAsViews() {
+        assumeTrue(missingViews().contains("v_lista_destinos"), "a view v_lista_destinos existe");
+        SQLException e = assertThrows(SQLException.class, () -> new DestinoDAO().getAllDestinos());
+        assertEquals(942, e.getErrorCode());
+        assertEquals("OBJETO_INEXISTENTE", DbErrors.translate(e).getCode());
+    }
+
+    @Test
     void leAsQuinzeTabelasSemErros() throws SQLException {
+        requireListViews();
         assertNotNull(new DestinoDAO().getAllDestinos());
         assertNotNull(new AtracaoDAO().getAllAtracoes());
         assertNotNull(new AlojamentoDAO().getAllAlojamentos());
@@ -108,6 +123,7 @@ class OracleIntegrationTest {
 
     @Test
     void cadaRegistoDaListaEhEncontradoPelaChave() throws SQLException {
+        requireListViews();
         for (Destino d : new DestinoDAO().getAllDestinos()) {
             assertEquals(d.getNomeDestino(), new DestinoDAO().getDestinoById(d.getIdDestino()).getNomeDestino());
         }
@@ -127,14 +143,17 @@ class OracleIntegrationTest {
     }
 
     @Test
-    void contagensDoPainelCoincidemComAsListas() throws SQLException {
+    @SuppressWarnings("unchecked")
+    void painelSoUsaViews() throws SQLException {
+        requireListViews();
         Map<String, Object> d = new DashboardDAO().load();
-        @SuppressWarnings("unchecked")
-        Map<String, Integer> totais = (Map<String, Integer>) d.get("totais");
-        assertEquals(15, totais.size());
-        assertEquals(new DestinoDAO().getAllDestinos().size(), totais.get("destinos"));
-        assertEquals(new TuristaDAO().getAllTuristas().size(), totais.get("turistas"));
-        assertEquals(new OperadorTransporteDAO().getAllOperadorTransportes().size(), totais.get("operadorTransportes"));
+        assertEquals(List.of("views", "verificacoes"), List.copyOf(d.keySet()), "o painel não lê tabelas diretamente");
+        Map<String, Object> views = (Map<String, Object>) d.get("views");
+        Map<String, Object> destinos = (Map<String, Object>) views.get("v_total_atracoes_destino");
+        if (Boolean.TRUE.equals(destinos.get("ok"))) {
+            List<?> rows = (List<?>) ((Map<String, Object>) destinos.get("data")).get("rows");
+            assertEquals(new DestinoDAO().getAllDestinos().size(), rows.size(), "uma linha por destino");
+        }
     }
 
     @Test
@@ -179,6 +198,7 @@ class OracleIntegrationTest {
 
     @Test
     void funcoesDeLeituraDaBd() throws SQLException {
+        requireListViews();
         List<Destino> destinos = new DestinoDAO().getAllDestinos();
         assumeTrue(!destinos.isEmpty(), "sem destinos");
         Map<String, String> info = new DestinoDAO().getInfo(destinos.get(0).getIdDestino());
@@ -190,6 +210,7 @@ class OracleIntegrationTest {
 
     @Test
     void criaAtualizaEApagaDestinoNumaTransacaoDesfeita() throws SQLException {
+        requireListViews();
         int before = new DestinoDAO().getAllDestinos().size();
         try (RollbackConnection tx = new RollbackConnection()) {
             DestinoDAO dao = new DestinoDAO(tx.provider());
@@ -219,6 +240,7 @@ class OracleIntegrationTest {
 
     @Test
     void transporteEOperadorComRollback() throws SQLException {
+        requireListViews();
         try (RollbackConnection tx = new RollbackConnection()) {
             TransporteDAO t = new TransporteDAO(tx.provider());
             String id = t.addTransporte(new Transporte(null, "[TESTE] Barco", 12, "Nao"));
@@ -236,6 +258,7 @@ class OracleIntegrationTest {
 
     @Test
     void trocaDePreferenciaEhAtomica() throws SQLException {
+        requireListViews();
         List<TuristaPreferencia> prefs = new TuristaPreferenciaDAO().getAllTuristaPreferencias();
         assumeTrue(!prefs.isEmpty(), "sem preferências");
         TuristaPreferencia p = prefs.get(0);
@@ -253,6 +276,7 @@ class OracleIntegrationTest {
 
     @Test
     void atualizacoesDeTuristaETipoComRollback() throws SQLException {
+        requireListViews();
         List<Turista> turistas = new TuristaDAO().getAllTuristas();
         List<TipoAlojamento> tipos = new TipoAlojamentoDAO().getAllTipoAlojamentos();
         assumeTrue(!turistas.isEmpty() && !tipos.isEmpty());
@@ -273,6 +297,7 @@ class OracleIntegrationTest {
 
     @Test
     void escritaEmAtracaoRefleteOEstadoDoTrigger() throws SQLException {
+        requireListViews();
         List<Destino> destinos = new DestinoDAO().getAllDestinos();
         assumeTrue(!destinos.isEmpty());
         try (RollbackConnection tx = new RollbackConnection()) {
@@ -291,6 +316,7 @@ class OracleIntegrationTest {
 
     @Test
     void criacaoDeReservaRefleteOEstadoDosTriggers() throws SQLException {
+        requireListViews();
         List<Turista> turistas = new TuristaDAO().getAllTuristas();
         assumeTrue(!turistas.isEmpty());
         try (RollbackConnection tx = new RollbackConnection()) {
@@ -353,6 +379,6 @@ class OracleIntegrationTest {
     @Test
     void estadoDoEsquemaEhCoerente() {
         assertFalse(((String) schema.get("database")).isEmpty());
-        assertEquals(24, schema.get("viewsEsperadas"));
+        assertEquals(39, schema.get("viewsEsperadas"), "24 de relatório + 15 de listagem");
     }
 }

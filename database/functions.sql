@@ -370,7 +370,7 @@ BEGIN
   DBMS_OUTPUT.PUT_LINE(Actualiza_Status_Reserva('RS-002', 'INVALIDO')); -- estado invalido
   DBMS_OUTPUT.PUT_LINE(Actualiza_Status_Reserva('RS-999', 'PENDENTE')); -- reserva inexistente
   DBMS_OUTPUT.PUT_LINE(Regista_Visita('DT-999', 'TR-001', SYSDATE));   -- destino inexistente
-  DBMS_OUTPUT.PUT_LINE(Regista_Visita('DT-001', 'TR-001', TO_DATE('15-10-2026','DD-MM-YYYY'))); -- visita repetida
+  DBMS_OUTPUT.PUT_LINE(Regista_Visita('DT-001', 'TR-001', TRUNC(SYSDATE) + 7)); -- visita repetida
   DBMS_OUTPUT.PUT_LINE(Elimina_Turista('TR-001'));                     -- tem reservas
 END;
 /
@@ -378,17 +378,17 @@ END;
 -- B.2 Testes que gravam e desfazem (o turista inserido e eliminado a seguir)
 BEGIN
   DBMS_OUTPUT.PUT_LINE(Insere_Turista('Pedro Machava', 'Mocambicana'));  -- codigo gerado pela sequencia (TR-005)
-  DBMS_OUTPUT.PUT_LINE(Regista_Visita('DT-002', 'TR-001', TO_DATE('20-10-2026','DD-MM-YYYY')));
+  DBMS_OUTPUT.PUT_LINE(Regista_Visita('DT-002', 'TR-001', TRUNC(SYSDATE) + 20));
   DBMS_OUTPUT.PUT_LINE(Elimina_Turista('TR-005'));                       -- troque TR-005 pelo codigo mostrado acima
 END;
 /
 DELETE FROM Turista_Destino
-WHERE ID_destino = 'DT-002' AND ID_turista = 'TR-001' AND data_visita = TO_DATE('20-10-2026','DD-MM-YYYY');
+WHERE ID_destino = 'DT-002' AND ID_turista = 'TR-001' AND data_visita = TRUNC(SYSDATE) + 20;
 COMMIT;
 
 -- B.3 Concluir um pagamento pendente (acrescenta um pagamento de teste)
 INSERT INTO Pagamento (ID_pagamento, ID_reserva, valor, data_pagamento, metodo_pagamento, status_pagamento)
-VALUES ('PG-' || LPAD(ID_pagamento.NEXTVAL, 3, '0'), 'RS-002', 3000.00, TO_DATE('10-10-2026','DD-MM-YYYY'), 'DINHEIRO', 'PENDENTE');
+VALUES ('PG-' || LPAD(ID_pagamento.NEXTVAL, 3, '0'), 'RS-002', 3000.00, TRUNC(SYSDATE), 'DINHEIRO', 'PENDENTE');
 COMMIT;
 SELECT ID_pagamento, status_pagamento, ID_recibo FROM Pagamento ORDER BY ID_pagamento;
 BEGIN

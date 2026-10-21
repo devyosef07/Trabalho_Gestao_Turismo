@@ -72,15 +72,16 @@ public final class DbErrors {
             case 4098:
                 return new ApiException(503, "TRIGGER_INVALIDO",
                         "O trigger " + objectName(message) + " está inválido na base de dados e bloqueia esta operação. "
-                                + "Aplique o script database/correcoes.sql.", e);
+                                + "Volte a executar o script database/Triggers.sql.", e);
             case 942:
                 return new ApiException(503, "OBJETO_INEXISTENTE",
                         "Uma tabela ou view necessária não existe na base de dados. "
-                                + "Aplique o script database/correcoes.sql.", e);
+                                + "As views precisam do privilégio CREATE VIEW (database/conceder_privilegios.sql, "
+                                + "executado pelo SYSTEM) e do script database/views.sql.", e);
             case 6575:
             case 6550:
                 return new ApiException(503, "PLSQL_INVALIDO",
-                        "Uma função ou procedure da base de dados está inválida. Aplique o script database/correcoes.sql.", e);
+                        "Uma função ou procedure da base de dados está inválida. Volte a executar database/procedures.sql e database/functions.sql.", e);
             case 8004:
                 return new ApiException(500, "SEQUENCIA_ESGOTADA",
                         "A sequência de identificadores atingiu o valor máximo (999).", e);

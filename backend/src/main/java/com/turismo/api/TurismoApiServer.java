@@ -140,14 +140,15 @@ public class TurismoApiServer {
             List<Map<String, String>> invalid = (List<Map<String, String>>) status.get("objetosInvalidos");
             List<String> missing = (List<String>) status.get("viewsEmFalta");
             if (!invalid.isEmpty()) {
-                System.out.println("AVISO: " + invalid.size() + " objetos INVALID na BD (aplique database/correcoes.sql):");
+                System.out.println("AVISO: " + invalid.size() + " objetos INVALID na BD (volte a executar database/Triggers.sql e database/procedures.sql):");
                 for (Map<String, String> o : invalid) {
                     System.out.println("  - " + o.get("tipo") + " " + o.get("nome"));
                 }
             }
             if (!missing.isEmpty()) {
                 System.out.println("AVISO: faltam " + missing.size() + " das " + status.get("viewsEsperadas")
-                        + " views (aplique database/correcoes.sql).");
+                        + " views (o SYSTEM tem de correr database/conceder_privilegios.sql;"
+                        + " depois execute database/views.sql).");
             }
         } catch (SQLException e) {
             System.err.println("Erro ao ligar à base de dados: " + DbErrors.translate(e).getMessage());

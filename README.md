@@ -74,21 +74,32 @@ java -jar frontend/target/turismo-desktop.jar # terminal 2: aplicação
 
 Ao arrancar, a API mostra o estado da base de dados, incluindo os objetos inválidos e as views em falta.
 
-## Estado atual da base de dados: ação necessária
+## Base de dados: scripts e estado atual
 
-A auditoria de 20-10-2026 encontrou na base de dados de desenvolvimento:
+Os scripts de `database/` foram corrigidos no próprio ficheiro (cada correção está comentada com `NOTA`). Para os executar há três scripts:
 
-- **nenhuma das 24 views** de `database/views.sql`;
-- **12 triggers e 5 procedures INVALID**. Um trigger inválido faz falhar qualquer escrita na sua tabela (`ORA-04098`). Por isso, hoje não é possível criar ou alterar atrações, alojamentos, reservas, pagamentos, avaliações de operadores e alojamentos de reservas, nem eliminar turistas ou reservas.
-
-A aplicação mostra estes problemas de forma explícita: tem um painel "Integridade dos dados", um aviso na barra de estado e uma mensagem clara em cada operação bloqueada. Para os corrigir:
+| Script | Quem executa | O que faz |
+|---|---|---|
+| `conceder_privilegios.sql` | **SYSTEM**, uma vez | `GRANT CREATE VIEW TO yosef`. No Oracle 10g os roles CONNECT e RESOURCE não incluem este privilégio, por isso as 24 views nunca puderam ser criadas (`ORA-01031`). |
+| `main.sql` | dono do esquema | Corre todos os scripts pela ordem certa: tabelas, sequências, histórico, índices, triggers, procedures, dados de exemplo, funções, views, cálculo de espaço (`relatorio_calculo2.txt`) e verificação final. |
+| `apagarAtualizar.sql` | dono do esquema | **Apaga** todos os objetos do projeto (views, tabelas, histórico, sequências, procedures, funções) e depois corre `main.sql`. |
 
 ```
 cd database
-sqlplus yosef@//192.168.64.4:1521/XE @correcoes.sql
+sqlplus system@//192.168.64.4:1521/XE @conceder_privilegios.sql
+sqlplus yosef@//192.168.64.4:1521/XE @main.sql
 ```
 
-O script `database/correcoes.sql` recria esses objetos mantendo a intenção original. Cada decisão de interpretação está comentada com `NOTA`. **Ainda não foi aplicado na base de dados**, porque essa alteração ao esquema precisa da sua autorização.
+Para criar só as views numa BD que já tem dados (sem apagar nada), depois do `GRANT`: `sqlplus yosef@//192.168.64.4:1521/XE @views.sql`.
+
+Estado em 21-10-2026: na BD de desenvolvimento **todos os triggers, procedures e funções estão válidos** (33 triggers, 16 procedures, 13 funções) e as escritas em todas as tabelas funcionam. **As 39 views ainda não existem**: falta o SYSTEM executar `conceder_privilegios.sql` e depois correr `views.sql`.
+
+**Tudo o que a aplicação mostra é lido de views, nunca das tabelas.** O `views.sql` tem 39 views:
+
+- 1 a 24: relatórios e painel;
+- 25 a 39: uma view de listagem por tabela (`v_lista_destinos`, `v_lista_reservas`, …), usada pelas páginas e pelas listas de escolha dos formulários. Usam as funções de `functions.sql` (por exemplo `Total_Pago_Reserva`, `Capacidade_Alojamento`).
+
+As tabelas só são usadas para inserir, alterar e apagar. Enquanto as views não existirem, as páginas mostram "View em falta".
 
 ## Testes
 
@@ -107,7 +118,8 @@ O relatório completo está em [RELATORIO_TESTES.md](RELATORIO_TESTES.md).
 ```
 pom.xml                    projeto Maven (módulos backend e frontend)
 config/                    configuração (sem palavras-passe)
-database/                  scripts SQL originais + correcoes.sql
+database/                  scripts SQL (corrigidos)
+  main.sql                 corre todos os scripts; apagarAtualizar.sql apaga tudo e recria
 backend/                   API REST: model, dao, handler, util
 frontend/                  aplicação Swing
   ui/theme                 cores (claro/escuro), tipografia, ícones

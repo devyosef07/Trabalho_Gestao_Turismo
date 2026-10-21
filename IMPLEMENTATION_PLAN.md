@@ -26,7 +26,7 @@ Documento das fases 1 e 2 (inspeção e plano), atualizado com o que foi feito. 
 - **5 procedures INVALID**: `registrar_reserva`, `registrar_pagamento`, `registrar_atracao`, `registrar_visita` e `alterar_horario_atracao` (variáveis não declaradas, colunas inexistentes).
 - **12 triggers INVALID** (`REGEXP` em vez de `REGEXP_LIKE`, `END IF` em falta, colunas de outras tabelas). Confirmado em transação com ROLLBACK: qualquer INSERT em `Atracao`, `Alojamento`, `Reserva`, `Pagamento`, `Operador_Turista` e `Reserva_Alojamento`, e qualquer DELETE em `Turista` e `Reserva`, falha com `ORA-04098`.
 - **Nenhuma das 24 views existe** (`user_views` vazia).
-- As tabelas e os triggers de auditoria (`Tabelas de Historico.sql`, primeira parte de `Triggers.sql`) não existem (o script tem `UPTADE`).
+- As tabelas e os triggers de auditoria (`Tabelas_de_Historico.sql`, primeira parte de `Triggers.sql`) não existem (o script tem `UPTADE`).
 - Dados reais: 2 destinos, 5 turistas, 2 tipos de alojamento, 2 transportes, 2 operadores, 2 preferências, 2 visitas, 2 associações operador-transporte. As restantes tabelas estão vazias.
 - É obrigatório `oracle.jdbc.timezoneAsRegion=false` (sem isto: `ORA-01882`).
 - O 10g XE tem poucos processos: abrir uma ligação por pedido esgotou o listener durante os testes (`ORA-12516`).
