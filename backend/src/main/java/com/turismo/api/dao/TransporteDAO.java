@@ -30,20 +30,21 @@ public class TransporteDAO extends BaseDAO {
         return queryOne(SELECT + " WHERE ID_TRANSPORTE = ?", TransporteDAO::map, id);
     }
 
+    /** Usa a procedure registrar_transporte. */
     public String addTransporte(Transporte t) throws SQLException {
-        return inTransaction(c -> IdGenerator.insertWithNewId(c, IdGenerator.Sequence.TRANSPORTE, id ->
-                update(c, "INSERT INTO TRANSPORTE (ID_TRANSPORTE, TIPO_TRANSPORTE, CAP_TRANSPORTE, DISPONIBILIDADE) VALUES (?, ?, ?, ?)",
-                        id, t.getTipoTransporte(), t.getCapTransporte(), t.getDisponibilidade())));
+        return callForNewId(IdGenerator.Sequence.TRANSPORTE, "registrar_transporte",
+                t.getTipoTransporte(), t.getCapTransporte(), t.getDisponibilidade());
     }
 
+    /** Usa a procedure atualizar_transporte. */
     public boolean updateTransporte(Transporte t) throws SQLException {
-        return update("UPDATE TRANSPORTE SET TIPO_TRANSPORTE = ?, CAP_TRANSPORTE = ?, DISPONIBILIDADE = ? WHERE ID_TRANSPORTE = ?",
-                t.getTipoTransporte(), t.getCapTransporte(), t.getDisponibilidade(), t.getIdTransporte()) > 0;
+        return callIfFound("atualizar_transporte", t.getIdTransporte(), t.getTipoTransporte(),
+                t.getCapTransporte(), t.getDisponibilidade());
     }
 
-    /** O trigger deleteTransporte apaga as associações a operadores. */
+    /** Usa a procedure eliminar_transporte; o trigger deleteTransporte apaga as associações a operadores. */
     public boolean deleteTransporte(String id) throws SQLException {
-        return update("DELETE FROM TRANSPORTE WHERE ID_TRANSPORTE = ?", id) > 0;
+        return callIfFound("eliminar_transporte", id);
     }
 
     private static Transporte map(ResultSet rs) throws SQLException {

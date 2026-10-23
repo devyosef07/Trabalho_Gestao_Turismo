@@ -30,20 +30,21 @@ public class OperadorDAO extends BaseDAO {
         return queryOne(SELECT + " WHERE ID_OPERADOR = ?", OperadorDAO::map, id);
     }
 
+    /** Usa a procedure registrar_operador. */
     public String addOperador(Operador o) throws SQLException {
-        return inTransaction(c -> IdGenerator.insertWithNewId(c, IdGenerator.Sequence.OPERADOR, id ->
-                update(c, "INSERT INTO OPERADOR (ID_OPERADOR, NOME_OPERADOR, ESPECIALIDADE, CLASS_OPERADOR) VALUES (?, ?, ?, ?)",
-                        id, o.getNomeOperador(), o.getEspecialidade(), o.getClassOperador())));
+        return callForNewId(IdGenerator.Sequence.OPERADOR, "registrar_operador",
+                o.getNomeOperador(), o.getEspecialidade(), o.getClassOperador());
     }
 
+    /** Usa a procedure atualizar_operador. */
     public boolean updateOperador(Operador o) throws SQLException {
-        return update("UPDATE OPERADOR SET NOME_OPERADOR = ?, ESPECIALIDADE = ?, CLASS_OPERADOR = ? WHERE ID_OPERADOR = ?",
-                o.getNomeOperador(), o.getEspecialidade(), o.getClassOperador(), o.getIdOperador()) > 0;
+        return callIfFound("atualizar_operador", o.getIdOperador(), o.getNomeOperador(),
+                o.getEspecialidade(), o.getClassOperador());
     }
 
-    /** O trigger deleteOperador apaga as associações a turistas, transportes e alojamentos. */
+    /** Usa a procedure eliminar_operador; o trigger deleteOperador apaga as associações a turistas, transportes e alojamentos. */
     public boolean deleteOperador(String id) throws SQLException {
-        return update("DELETE FROM OPERADOR WHERE ID_OPERADOR = ?", id) > 0;
+        return callIfFound("eliminar_operador", id);
     }
 
     private static Operador map(ResultSet rs) throws SQLException {

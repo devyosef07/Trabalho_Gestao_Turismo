@@ -1,9 +1,11 @@
 #!/bin/bash
-# Compila e arranca só a API (backend). Para abrir também a aplicação desktop
-# use ../executar.sh. Requer a variável TURISMO_DB_PASSWORD (definida no ~/.zshrc).
+# Arranca só a API (backend). Para abrir também a aplicação desktop use
+# executar.sh. Requer a variável TURISMO_DB_PASSWORD (definida no ~/.zshrc).
+# Uso:
+#   ./scripts/api.sh                 compila o backend e arranca a API
+#   ./scripts/api.sh --sem-compilar  arranca a API já compilada
 
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cd "$SCRIPT_DIR/.." || exit 1
+cd "$(dirname "$0")/.." || exit 1
 
 if [ -z "$TURISMO_DB_PASSWORD" ]; then
     echo "ERRO: a variável TURISMO_DB_PASSWORD não está definida."
@@ -20,8 +22,10 @@ if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN > /dev/null 2>&1; then
     sleep 1
 fi
 
-echo "A compilar (mvn package)..."
-mvn -q -DskipTests -pl backend -am package || { echo "ERRO: a compilação falhou."; exit 1; }
+if [ "$1" != "--sem-compilar" ]; then
+    echo "A compilar (mvn package)..."
+    mvn -q -DskipTests -pl backend -am package || { echo "ERRO: a compilação falhou."; exit 1; }
+fi
 
 echo "API disponível em http://localhost:$PORT/api (Ctrl+C para parar)"
 java -jar backend/target/turismo-api.jar

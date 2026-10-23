@@ -1,5 +1,7 @@
 # Plano de implementação e auditoria
 
+> **Documento histórico (20-10-2026).** Desde 21-10-2026 os scripts de execução estão em `scripts/` (ex.: `./scripts/executar.sh`), a BD tem 0 objetos inválidos e as 39 views, e todas as escritas passam por procedures. O estado atual está no [manual técnico](README.md).
+
 Documento das fases 1 e 2 (inspeção e plano), atualizado com o que foi feito. Data da auditoria: 20-10-2026.
 
 ## 1. Auditoria do projeto existente

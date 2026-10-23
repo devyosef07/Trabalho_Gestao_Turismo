@@ -30,11 +30,6 @@ public abstract class BaseDAO {
         T map(ResultSet rs) throws SQLException;
     }
 
-    @FunctionalInterface
-    public interface TxWork<T> {
-        T run(Connection connection) throws SQLException;
-    }
-
     protected final ConnectionProvider connections;
 
     protected BaseDAO() {
@@ -69,34 +64,40 @@ public abstract class BaseDAO {
         return rows.isEmpty() ? null : rows.get(0);
     }
 
-    protected int update(String sql, Object... params) throws SQLException {
+    /**
+     * As escritas são todas feitas por procedures (procedures.sql): a
+     * aplicação nunca escreve diretamente nas tabelas.
+     * Chama a procedure e devolve a mensagem de sucesso.
+     */
+    protected String call(String procedure, Object... params) throws SQLException {
         try (Connection c = connections.get()) {
-            return update(c, sql, params);
+            return PlSqlOutput.callProcedure(c, procedure, params);
         }
     }
 
-    protected int update(Connection c, String sql, Object... params) throws SQLException {
-        try (PreparedStatement ps = prepare(c, sql)) {
-            bind(ps, params);
-            return ps.executeUpdate();
+    /** Para as procedures registrar_*: devolve o código gerado (ex.: DT-004). */
+    protected String callForNewId(IdGenerator.Sequence seq, String procedure, Object... params) throws SQLException {
+        try (Connection c = connections.get()) {
+            return PlSqlOutput.callProcedureForNewId(c, seq, procedure, params);
         }
     }
 
-    /** Executa várias instruções numa só transação: tudo ou nada. */
-    protected <T> T inTransaction(TxWork<T> work) throws SQLException {
+    /** Para as procedures de alteração e eliminação: false se o registo não existir. */
+    protected boolean callIfFound(String procedure, Object... params) throws SQLException {
         try (Connection c = connections.get()) {
-            boolean previous = c.getAutoCommit();
-            c.setAutoCommit(false);
-            try {
-                T result = work.run(c);
-                c.commit();
-                return result;
-            } catch (SQLException | RuntimeException e) {
-                rollbackQuietly(c, e);
-                throw e;
-            } finally {
-                restoreAutoCommit(c, previous);
-            }
+            return PlSqlOutput.callProcedureIfFound(c, procedure, params);
+        }
+    }
+
+    /**
+     * Desfaz um registo já gravado (as procedures fazem COMMIT) quando o passo
+     * seguinte da mesma operação falha; um erro aqui fica anexado ao original.
+     */
+    protected static void undo(Connection c, Exception original, String procedure, Object... params) {
+        try {
+            PlSqlOutput.callProcedure(c, procedure, params);
+        } catch (SQLException | RuntimeException cleanup) {
+            original.addSuppressed(cleanup);
         }
     }
 
@@ -190,21 +191,5 @@ public abstract class BaseDAO {
     protected static String getTrimmed(ResultSet rs, String column) throws SQLException {
         String value = rs.getString(column);
         return value == null ? null : value.trim();
-    }
-
-    private static void rollbackQuietly(Connection c, Exception original) {
-        try {
-            c.rollback();
-        } catch (SQLException rollbackError) {
-            original.addSuppressed(rollbackError);
-        }
-    }
-
-    private static void restoreAutoCommit(Connection c, boolean previous) {
-        try {
-            c.setAutoCommit(previous);
-        } catch (SQLException ignored) {
-            // A ligação vai ser fechada a seguir.
-        }
     }
 }

@@ -38,14 +38,14 @@ public class TipoAlojamentoDAO extends BaseDAO {
         }
     }
 
-    /** A chave (nome do tipo) não muda: é referenciada pelos alojamentos. */
+    /** Usa a procedure atualizar_tipo_alojamento. A chave (nome do tipo) não muda: é referenciada pelos alojamentos. */
     public boolean updateTipoAlojamento(TipoAlojamento t) throws SQLException {
-        return update("UPDATE TIPO_ALOJAMENTO SET CAP_ALOJAMENTO = ? WHERE TIPO_ALOJAMENTO = ?",
-                t.getCapAlojamento(), t.getTipoAlojamento()) > 0;
+        return callIfFound("atualizar_tipo_alojamento", t.getTipoAlojamento(), t.getCapAlojamento());
     }
 
+    /** Usa a procedure eliminar_tipo_alojamento (falha se houver alojamentos desse tipo). */
     public boolean deleteTipoAlojamento(String tipo) throws SQLException {
-        return update("DELETE FROM TIPO_ALOJAMENTO WHERE TIPO_ALOJAMENTO = ?", tipo) > 0;
+        return callIfFound("eliminar_tipo_alojamento", tipo);
     }
 
     private static TipoAlojamento map(ResultSet rs) throws SQLException {

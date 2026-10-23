@@ -4,8 +4,9 @@
 # 1. compila (se ainda não houver jars), 2. arranca a API se não estiver
 # a correr, 3. abre a aplicação desktop. Ao fechar a aplicação, a API
 # arrancada por este script também termina.
+# Uso (a partir da raiz do projeto): ./scripts/executar.sh
 # ------------------------------------------------------------
-cd "$(dirname "$0")" || exit 1
+cd "$(dirname "$0")/.." || exit 1
 
 if [ -z "$TURISMO_DB_PASSWORD" ] && ! grep -qs '^db.password=.\+' config/turismo.local.properties; then
     echo "ERRO: defina a palavra-passe da base de dados:"

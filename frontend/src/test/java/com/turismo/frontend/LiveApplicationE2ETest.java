@@ -4,6 +4,8 @@ import com.google.gson.JsonObject;
 import com.turismo.frontend.api.ApiClient;
 import com.turismo.frontend.api.ApiException;
 import com.turismo.frontend.api.ClientConfig;
+import com.turismo.frontend.auth.AuthService;
+import com.turismo.frontend.auth.TokenStore;
 import com.turismo.frontend.modules.CrudPage;
 import com.turismo.frontend.pages.DashboardPage;
 import com.turismo.frontend.ui.theme.Theme;
@@ -29,7 +31,10 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * Teste ponta a ponta com a aplicação real: API do backend (config/turismo.properties)
  * + base de dados Oracle. Abre a janela verdadeira, percorre os 16 ecrãs e grava
  * capturas em target/screenshots. Só leitura: não cria nem altera registos.
- * Fica "skipped" se a API não estiver a correr.
+ *
+ * A API exige sessão: o teste entra com a conta indicada nas variáveis de
+ * ambiente TURISMO_E2E_UTILIZADOR e TURISMO_E2E_PALAVRA_PASSE (nunca no código).
+ * Fica "skipped" se a API não estiver a correr ou se essas variáveis faltarem.
  */
 @Tag("integracao")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -47,9 +52,19 @@ class LiveApplicationE2ETest {
         } catch (ApiException e) {
             assumeTrue(false, "API indisponível em " + api.baseUrl() + ": " + e.getMessage());
         }
+        String user = System.getenv("TURISMO_E2E_UTILIZADOR");
+        String password = System.getenv("TURISMO_E2E_PALAVRA_PASSE");
+        assumeTrue(user != null && password != null,
+                "Defina TURISMO_E2E_UTILIZADOR e TURISMO_E2E_PALAVRA_PASSE para o teste ponta a ponta");
+        AuthService auth = new AuthService(api, TokenStore.memory());
+        try {
+            auth.login(user, password, false);
+        } catch (ApiException e) {
+            throw new AssertionError("Não foi possível iniciar sessão com a conta de teste: " + e.getMessage(), e);
+        }
         edt(() -> {
             Theme.install();
-            window = new MainWindow(api);
+            window = MainWindow.withSession(api, auth);
             window.setSize(new Dimension(1440, 900));
             window.setVisible(true);
         });
@@ -58,6 +73,7 @@ class LiveApplicationE2ETest {
     @AfterAll
     static void close() {
         if (window != null) {
+            edt(() -> window.logout());
             edt(() -> window.dispose());
         }
     }

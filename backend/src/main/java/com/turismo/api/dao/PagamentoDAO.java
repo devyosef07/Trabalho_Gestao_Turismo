@@ -39,21 +39,20 @@ public class PagamentoDAO extends BaseDAO {
         return query(SELECT + " WHERE ID_RESERVA = ? ORDER BY ID_PAGAMENTO", PagamentoDAO::map, idReserva);
     }
 
-    /** SQL direto: a procedure registrar_pagamento está INVALID na BD. */
+    /** Usa a procedure registrar_pagamento; o recibo fica vazio (é gerado por Concluir_Pagamento). */
     public String addPagamento(Pagamento p) throws SQLException {
-        return inTransaction(c -> IdGenerator.insertWithNewId(c, IdGenerator.Sequence.PAGAMENTO, id ->
-                update(c, "INSERT INTO PAGAMENTO (ID_PAGAMENTO, VALOR, DATA_PAGAMENTO, METODO_PAGAMENTO, STATUS_PAGAMENTO, "
-                                + "DETALHES_TRANSACAO, ID_RESERVA) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        id, p.getValor(), p.getDataPagamento(), p.getMetodoPagamento(), p.getStatusPagamento(),
-                        p.getDetalhesTransacao(), p.getIdReserva())));
+        return callForNewId(IdGenerator.Sequence.PAGAMENTO, "registrar_pagamento",
+                p.getIdReserva(), p.getValor(), p.getDataPagamento(), p.getMetodoPagamento(),
+                p.getStatusPagamento(), null, p.getDetalhesTransacao());
     }
 
-    /** Só altera pagamentos ainda não concluídos (os concluídos já têm recibo). */
+    /**
+     * Usa a procedure atualizar_pagamento, que só altera pagamentos ainda não
+     * concluídos (os concluídos já têm recibo), mesmo em concorrência.
+     */
     public boolean updatePagamento(Pagamento p) throws SQLException {
-        return update("UPDATE PAGAMENTO SET VALOR = ?, DATA_PAGAMENTO = ?, METODO_PAGAMENTO = ?, STATUS_PAGAMENTO = ?, "
-                        + "DETALHES_TRANSACAO = ?, ID_RESERVA = ? WHERE ID_PAGAMENTO = ? AND STATUS_PAGAMENTO <> 'CONCLUIDO'",
-                p.getValor(), p.getDataPagamento(), p.getMetodoPagamento(), p.getStatusPagamento(),
-                p.getDetalhesTransacao(), p.getIdReserva(), p.getIdPagamento()) > 0;
+        return callIfFound("atualizar_pagamento", p.getIdPagamento(), p.getValor(), p.getDataPagamento(),
+                p.getMetodoPagamento(), p.getStatusPagamento(), p.getDetalhesTransacao(), p.getIdReserva());
     }
 
     /** Usa a função Concluir_Pagamento, que gera o recibo. */
@@ -69,8 +68,9 @@ public class PagamentoDAO extends BaseDAO {
                 rs -> rs.getBigDecimal("VALOR_USD"), cotacao, id);
     }
 
+    /** Usa a procedure eliminar_pagamento. */
     public boolean deletePagamento(String id) throws SQLException {
-        return update("DELETE FROM PAGAMENTO WHERE ID_PAGAMENTO = ?", id) > 0;
+        return callIfFound("eliminar_pagamento", id);
     }
 
     private static Pagamento map(ResultSet rs) throws SQLException {

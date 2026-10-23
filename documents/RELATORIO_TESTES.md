@@ -1,5 +1,7 @@
 # Relatório de testes
 
+> **Documento histórico (20-10-2026).** Desde 21-10-2026 os scripts de execução estão em `scripts/` (ex.: `./scripts/executar.sh`), a BD tem 0 objetos inválidos e as 39 views, e todas as escritas passam por procedures. O estado atual está no [manual técnico](README.md).
+
 Executado em 20-10-2026 em macOS (Darwin 27), OpenJDK 26.0.2, Maven 3.10.0 (o Maven corre sobre o OpenJDK 27 do Homebrew), contra o Oracle Database 10g Express Edition 10.2.0.1.0 na VM `192.168.64.4`.
 
 ## Comandos executados

@@ -56,8 +56,9 @@ public class OperadorTuristaDAO extends BaseDAO {
         }
     }
 
+    /** Usa a procedure remover_operador_turista. */
     public boolean deleteOperadorTurista(String idOperador, String idTurista) throws SQLException {
-        return update("DELETE FROM OPERADOR_TURISTA WHERE ID_OPERADOR = ? AND ID_TURISTA = ?", idOperador, idTurista) > 0;
+        return callIfFound("remover_operador_turista", idOperador, idTurista);
     }
 
     private static OperadorTurista map(ResultSet rs) throws SQLException {

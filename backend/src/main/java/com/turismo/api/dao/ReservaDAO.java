@@ -11,9 +11,10 @@ import java.util.List;
 /**
  * Data Access Object for Reserva entity
  *
- * A criação usa SQL direto numa transação (reserva + alojamentos escolhidos):
- * as procedures registrar_reserva e associar_alojamento_reserva fazem COMMIT
- * sozinhas, o que impediria criar tudo de forma atómica.
+ * Escritas só por procedures e funções: registrar_reserva +
+ * associar_alojamento_reserva (criação), alterar_datas_reserva +
+ * alterar_turista_reserva + Actualiza_Status_Reserva (alteração),
+ * cancelar_reserva e eliminar_reserva.
  */
 public class ReservaDAO extends BaseDAO {
 
@@ -39,50 +40,55 @@ public class ReservaDAO extends BaseDAO {
         return query(SELECT + " WHERE ID_TURISTA = ? ORDER BY ID_RESERVA", ReservaDAO::map, idTurista);
     }
 
-    /** Cria a reserva e associa os alojamentos indicados, tudo ou nada. */
+    /**
+     * Cria a reserva com registrar_reserva e associa cada alojamento com
+     * associar_alojamento_reserva. Cada procedure faz COMMIT; se uma associação
+     * falhar, a reserva é eliminada (eliminar_reserva; o trigger deleteReserva
+     * apaga também os alojamentos já associados), para que fique tudo ou nada.
+     */
     public String addReserva(Reserva reserva, List<String> idsAlojamento) throws SQLException {
-        return inTransaction(c -> {
-            String id = IdGenerator.insertWithNewId(c, IdGenerator.Sequence.RESERVA, newId ->
-                    update(c, "INSERT INTO RESERVA (ID_RESERVA, ID_TURISTA, DATA_CHEGADA, DATA_PARTIDA, STATUS_RESERVA) "
-                                    + "VALUES (?, ?, ?, ?, ?)",
-                            newId, reserva.getIdTurista(), reserva.getDataChegada(), reserva.getDataPartida(),
-                            reserva.getStatusReserva()));
-            for (String idAlojamento : idsAlojamento) {
-                update(c, "INSERT INTO RESERVA_ALOJAMENTO (ID_RESERVA, ID_ALOJAMENTO, AVALIACAO_ALOJAMENTO) VALUES (?, ?, NULL)",
-                        id, idAlojamento);
+        try (Connection c = connections.get()) {
+            String id = PlSqlOutput.callProcedureForNewId(c, IdGenerator.Sequence.RESERVA, "registrar_reserva",
+                    reserva.getIdTurista(), reserva.getDataChegada(), reserva.getDataPartida(),
+                    reserva.getStatusReserva());
+            try {
+                for (String idAlojamento : idsAlojamento) {
+                    PlSqlOutput.callProcedure(c, "associar_alojamento_reserva", id, idAlojamento);
+                }
+            } catch (SQLException | RuntimeException e) {
+                undo(c, e, "eliminar_reserva", id);
+                throw e;
             }
             return id;
-        });
+        }
     }
 
     /**
-     * Turista e datas com UPDATE; o estado com a função Actualiza_Status_Reserva,
-     * na mesma transação. A função faz COMMIT das duas alterações quando corre
-     * bem e ROLLBACK de ambas quando falha, por isso mudam sempre juntas.
+     * Datas com alterar_datas_reserva, turista com alterar_turista_reserva e
+     * estado com a função Actualiza_Status_Reserva. Cada uma faz COMMIT; o
+     * handler já validou as datas, o turista e o estado antes de chamar.
      */
     public boolean updateReserva(Reserva reserva) throws SQLException {
-        return inTransaction(c -> {
-            if (update(c, "UPDATE RESERVA SET ID_TURISTA = ?, DATA_CHEGADA = ?, DATA_PARTIDA = ? WHERE ID_RESERVA = ?",
-                    reserva.getIdTurista(), reserva.getDataChegada(), reserva.getDataPartida(),
-                    reserva.getIdReserva()) == 0) {
+        try (Connection c = connections.get()) {
+            if (!PlSqlOutput.callProcedureIfFound(c, "alterar_datas_reserva", reserva.getIdReserva(),
+                    reserva.getDataChegada(), reserva.getDataPartida())) {
                 return false;
             }
+            PlSqlOutput.callProcedure(c, "alterar_turista_reserva", reserva.getIdReserva(), reserva.getIdTurista());
             requireSuccess(callStringFunction(c, "Actualiza_Status_Reserva", reserva.getIdReserva(),
                     reserva.getStatusReserva()), "Reserva " + reserva.getIdReserva() + " actualizada");
             return true;
-        });
+        }
     }
 
     /** Usa a procedure cancelar_reserva. */
     public String cancelarReserva(String id) throws SQLException {
-        try (Connection c = connections.get()) {
-            return PlSqlOutput.callProcedure(c, "cancelar_reserva", id);
-        }
+        return call("cancelar_reserva", id);
     }
 
-    /** O trigger deleteReserva apaga os pagamentos e alojamentos da reserva. */
+    /** Usa a procedure eliminar_reserva; o trigger deleteReserva apaga os pagamentos e alojamentos da reserva. */
     public boolean deleteReserva(String id) throws SQLException {
-        return update("DELETE FROM RESERVA WHERE ID_RESERVA = ?", id) > 0;
+        return callIfFound("eliminar_reserva", id);
     }
 
     private static Reserva map(ResultSet rs) throws SQLException {

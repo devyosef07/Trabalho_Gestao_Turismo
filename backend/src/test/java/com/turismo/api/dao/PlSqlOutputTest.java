@@ -31,6 +31,27 @@ class PlSqlOutputTest {
     }
 
     @Test
+    void erroDeFuncaoChamadaPelaProcedureEhClassificado() {
+        ApiException e = assertThrows(ApiException.class, () -> PlSqlOutput.interpret("registrar_visita",
+                List.of("Erro ao registrar visita: Destino inexistente")));
+        assertEquals(404, e.getStatus());
+        assertEquals("Destino inexistente", e.getMessage());
+        assertEquals(409, assertThrows(ApiException.class, () -> PlSqlOutput.interpret("registrar_visita",
+                List.of("Erro ao registrar visita: Esse turista ja tem uma visita registada a este destino nessa data")))
+                .getStatus());
+    }
+
+    @Test
+    void identificadorCriadoEhLidoDaMensagem() {
+        assertEquals("AT-012", PlSqlOutput.newId(IdGenerator.Sequence.ATRACAO, "registrar_atracao",
+                "Atracao AT-012 registrada com sucesso!"));
+        assertEquals("RS-007", PlSqlOutput.newId(IdGenerator.Sequence.RESERVA, "registrar_reserva",
+                "Reserva RS-007 gerada com sucesso!"));
+        assertEquals(500, assertThrows(ApiException.class, () -> PlSqlOutput.newId(IdGenerator.Sequence.PAGAMENTO,
+                "registrar_pagamento", "Pagamento gerado com sucesso!")).getStatus());
+    }
+
+    @Test
     void semSaidaNaoEhTratadoComoSucesso() {
         assertEquals(500, assertThrows(ApiException.class, () -> PlSqlOutput.interpret("p", List.of())).getStatus());
     }
@@ -44,13 +65,5 @@ class PlSqlOutputTest {
         assertEquals(422, BaseDAO.functionError("Destino lotado nessa data").getStatus());
         assertEquals("TRIGGER_INVALIDO", BaseDAO.functionError(
                 "Erro desconhecido: -4098 - ORA-04098: trigger 'YOSEF.DELETERESERVA' is invalid and failed re-validation").getCode());
-    }
-
-    @Test
-    void identificadoresUsamOFormatoDosInserts() {
-        assertEquals("SELECT 'DT-' || LPAD(ID_destino.NEXTVAL, 3, '0') FROM dual",
-                IdGenerator.sql(IdGenerator.Sequence.DESTINO));
-        assertEquals("SELECT 'PG-' || LPAD(ID_pagamento.NEXTVAL, 3, '0') FROM dual",
-                IdGenerator.sql(IdGenerator.Sequence.PAGAMENTO));
     }
 }

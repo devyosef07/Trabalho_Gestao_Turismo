@@ -5,9 +5,10 @@
 -- (Oracle 10g XE)
 --
 -- ATENÇÃO: perdem-se TODOS os dados, incluindo o histórico de auditoria.
--- Apaga só os objetos do projeto, pelo nome: as 39 views, as 15 tabelas,
--- as 15 tabelas de histórico (os triggers e índices vão com as tabelas),
--- as 9 sequências, as procedures e as funções. Depois corre main.sql.
+-- Apaga só os objetos do projeto, pelo nome: as 41 views, as 17 tabelas
+-- (incluindo as contas de utilizador de contas.sql), as 15 tabelas de
+-- histórico (os triggers e índices vão com as tabelas), as 10 sequências,
+-- as procedures e as funções. Depois corre main.sql.
 --
 -- Executar a partir de database/:
 --   cd database
@@ -78,6 +79,8 @@ BEGIN
     apagar('VIEW', 'v_lista_operador_turistas');
     apagar('VIEW', 'v_lista_operador_transportes');
     apagar('VIEW', 'v_lista_operador_alojamentos');
+    apagar('VIEW', 'v_conta_credenciais');
+    apagar('VIEW', 'v_sessao_ativa');
 
     -- 2. Tabelas (com CASCADE CONSTRAINTS a ordem não importa)
     apagar('TABLE', 'Turista_Destino');
@@ -95,6 +98,8 @@ BEGIN
     apagar('TABLE', 'Atracao');
     apagar('TABLE', 'Destino');
     apagar('TABLE', 'Tipo_Alojamento');
+    apagar('TABLE', 'Sessao_Utilizador');
+    apagar('TABLE', 'Conta_Utilizador');
 
     -- 3. Tabelas de histórico
     apagar('TABLE', 'auditoria_alojamento');
@@ -123,8 +128,9 @@ BEGIN
     apagar('SEQUENCE', 'ID_transporte');
     apagar('SEQUENCE', 'ID_pagamento');
     apagar('SEQUENCE', 'ID_recibo');
+    apagar('SEQUENCE', 'ID_conta');
 
-    -- 5. Procedures (procedures.sql)
+    -- 5. Procedures (procedures.sql, Parte 1: enunciado)
     apagar('PROCEDURE', 'registrar_reserva');
     apagar('PROCEDURE', 'associar_alojamento_reserva');
     apagar('PROCEDURE', 'registrar_pagamento');
@@ -141,6 +147,41 @@ BEGIN
     apagar('PROCEDURE', 'alterar_datas_reserva');
     apagar('PROCEDURE', 'avaliar_alojamento');
     apagar('PROCEDURE', 'avaliar_operador');
+
+    -- 5b. Procedures (procedures.sql, Parte 2: manutenção)
+    apagar('PROCEDURE', 'registrar_destino');
+    apagar('PROCEDURE', 'atualizar_destino');
+    apagar('PROCEDURE', 'eliminar_destino');
+    apagar('PROCEDURE', 'registrar_alojamento');
+    apagar('PROCEDURE', 'atualizar_alojamento');
+    apagar('PROCEDURE', 'eliminar_alojamento');
+    apagar('PROCEDURE', 'registrar_transporte');
+    apagar('PROCEDURE', 'atualizar_transporte');
+    apagar('PROCEDURE', 'eliminar_transporte');
+    apagar('PROCEDURE', 'registrar_operador');
+    apagar('PROCEDURE', 'atualizar_operador');
+    apagar('PROCEDURE', 'eliminar_operador');
+    apagar('PROCEDURE', 'atualizar_atracao');
+    apagar('PROCEDURE', 'eliminar_atracao');
+    apagar('PROCEDURE', 'alterar_turista_reserva');
+    apagar('PROCEDURE', 'eliminar_reserva');
+    apagar('PROCEDURE', 'atualizar_pagamento');
+    apagar('PROCEDURE', 'eliminar_pagamento');
+    apagar('PROCEDURE', 'atualizar_tipo_alojamento');
+    apagar('PROCEDURE', 'eliminar_tipo_alojamento');
+    apagar('PROCEDURE', 'atualizar_turista');
+    apagar('PROCEDURE', 'remover_preferencia');
+    apagar('PROCEDURE', 'remover_visita');
+    apagar('PROCEDURE', 'remover_alojamento_reserva');
+    apagar('PROCEDURE', 'remover_operador_turista');
+    apagar('PROCEDURE', 'remover_operador_transporte');
+    apagar('PROCEDURE', 'remover_operador_alojamento');
+
+    -- 5c. Procedures das contas de utilizador (contas.sql)
+    apagar('PROCEDURE', 'registrar_conta');
+    apagar('PROCEDURE', 'registar_acesso_conta');
+    apagar('PROCEDURE', 'iniciar_sessao');
+    apagar('PROCEDURE', 'terminar_sessao');
 
     -- 6. Funções (functions.sql)
     apagar('FUNCTION', 'Total_Pago_Reserva');

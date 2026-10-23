@@ -1,9 +1,14 @@
 package com.turismo.api;
 
+import com.sun.net.httpserver.HttpContext;
+import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import com.turismo.api.auth.AuthFilter;
+import com.turismo.api.auth.SessionService;
 import com.turismo.api.dao.SchemaDAO;
 import com.turismo.api.handler.AlojamentoHandler;
 import com.turismo.api.handler.AtracaoHandler;
+import com.turismo.api.handler.AuthHandler;
 import com.turismo.api.handler.DashboardHandler;
 import com.turismo.api.handler.DestinoHandler;
 import com.turismo.api.handler.DominioHandler;
@@ -37,11 +42,13 @@ import java.util.concurrent.TimeUnit;
  * Main server class for the Turismo API
  *
  * A porta (api.port) e o endereço (api.bindAddress) vêm de config/turismo.properties.
- * Por omissão a API só aceita ligações locais, porque não tem autenticação.
+ * Por omissão a API só aceita ligações locais. Os endpoints de dados exigem uma
+ * sessão iniciada em /api/auth (api.requireAuth=false desliga essa exigência,
+ * por exemplo para testes manuais com curl).
  */
 public class TurismoApiServer {
     private static final String[] ENDPOINTS = {
-            "/api/estado", "/api/dominios", "/api/dashboard", "/api/relatorios",
+            "/api/estado", "/api/auth", "/api/dominios", "/api/dashboard", "/api/relatorios",
             "/api/destinos", "/api/atracoes", "/api/alojamentos", "/api/tipoAlojamentos", "/api/transportes",
             "/api/turistas", "/api/turistaPreferencias", "/api/operadores",
             "/api/reservas", "/api/pagamentos",
@@ -52,37 +59,47 @@ public class TurismoApiServer {
     private final HttpServer server;
     private final ExecutorService executor;
     private final int port;
+    private final AuthFilter authFilter;
 
     public TurismoApiServer() {
-        this(AppConfig.get().getInt("api.port", 8083), AppConfig.get().get("api.bindAddress", "127.0.0.1"));
+        this(AppConfig.get().getInt("api.port", 8083), AppConfig.get().get("api.bindAddress", "127.0.0.1"),
+                !"false".equalsIgnoreCase(AppConfig.get().get("api.requireAuth", "true")));
     }
 
     public TurismoApiServer(int port, String bindAddress) {
+        this(port, bindAddress, true);
+    }
+
+    public TurismoApiServer(int port, String bindAddress, boolean requireAuth) {
+        this.authFilter = requireAuth ? new AuthFilter(SessionService.DEFAULT) : null;
         try {
             // Create HTTP server on specified port
             this.server = HttpServer.create(new InetSocketAddress(bindAddress, port), 0);
             this.port = server.getAddress().getPort();
 
-            // Create context paths and assign handlers
+            // Públicos: estado da ligação e contas/sessões
             server.createContext("/api/estado", new EstadoHandler());
-            server.createContext("/api/dominios", new DominioHandler());
-            server.createContext("/api/dashboard", new DashboardHandler());
-            server.createContext("/api/relatorios", new RelatorioHandler());
-            server.createContext("/api/turistas", new TuristaHandler());
-            server.createContext("/api/destinos", new DestinoHandler());
-            server.createContext("/api/reservas", new ReservaHandler());
-            server.createContext("/api/alojamentos", new AlojamentoHandler());
-            server.createContext("/api/atracoes", new AtracaoHandler());
-            server.createContext("/api/pagamentos", new PagamentoHandler());
-            server.createContext("/api/transportes", new TransporteHandler());
-            server.createContext("/api/tipoAlojamentos", new TipoAlojamentoHandler());
-            server.createContext("/api/operadores", new OperadorHandler());
-            server.createContext("/api/operadorAlojamentos", new OperadorAlojamentoHandler());
-            server.createContext("/api/operadorTransportes", new OperadorTransporteHandler());
-            server.createContext("/api/operadorTuristas", new OperadorTuristaHandler());
-            server.createContext("/api/reservaAlojamentos", new ReservaAlojamentoHandler());
-            server.createContext("/api/turistaDestinos", new TuristaDestinoHandler());
-            server.createContext("/api/turistaPreferencias", new TuristaPreferenciaHandler());
+            server.createContext("/api/auth", new AuthHandler());
+
+            // Dados: só com sessão iniciada
+            protect("/api/dominios", new DominioHandler());
+            protect("/api/dashboard", new DashboardHandler());
+            protect("/api/relatorios", new RelatorioHandler());
+            protect("/api/turistas", new TuristaHandler());
+            protect("/api/destinos", new DestinoHandler());
+            protect("/api/reservas", new ReservaHandler());
+            protect("/api/alojamentos", new AlojamentoHandler());
+            protect("/api/atracoes", new AtracaoHandler());
+            protect("/api/pagamentos", new PagamentoHandler());
+            protect("/api/transportes", new TransporteHandler());
+            protect("/api/tipoAlojamentos", new TipoAlojamentoHandler());
+            protect("/api/operadores", new OperadorHandler());
+            protect("/api/operadorAlojamentos", new OperadorAlojamentoHandler());
+            protect("/api/operadorTransportes", new OperadorTransporteHandler());
+            protect("/api/operadorTuristas", new OperadorTuristaHandler());
+            protect("/api/reservaAlojamentos", new ReservaAlojamentoHandler());
+            protect("/api/turistaDestinos", new TuristaDestinoHandler());
+            protect("/api/turistaPreferencias", new TuristaPreferenciaHandler());
 
             // Vários pedidos em paralelo (o painel e as listas carregam ao mesmo tempo)
             this.executor = Executors.newFixedThreadPool(8, r -> {
@@ -92,9 +109,17 @@ public class TurismoApiServer {
             });
             server.setExecutor(executor);
 
-            System.out.println("Turismo API Server initialized on " + bindAddress + ":" + this.port);
+            System.out.println("Turismo API Server initialized on " + bindAddress + ":" + this.port
+                    + (requireAuth ? "" : " (SEM autenticação: api.requireAuth=false)"));
         } catch (IOException e) {
             throw new RuntimeException("Failed to create HTTP server on port " + port + ": " + e.getMessage(), e);
+        }
+    }
+
+    private void protect(String path, HttpHandler handler) {
+        HttpContext context = server.createContext(path, handler);
+        if (authFilter != null) {
+            context.getFilters().add(authFilter);
         }
     }
 
@@ -148,7 +173,7 @@ public class TurismoApiServer {
             if (!missing.isEmpty()) {
                 System.out.println("AVISO: faltam " + missing.size() + " das " + status.get("viewsEsperadas")
                         + " views (o SYSTEM tem de correr database/conceder_privilegios.sql;"
-                        + " depois execute database/views.sql).");
+                        + " depois execute database/views.sql e database/contas.sql).");
             }
         } catch (SQLException e) {
             System.err.println("Erro ao ligar à base de dados: " + DbErrors.translate(e).getMessage());

@@ -3,9 +3,10 @@ rem ------------------------------------------------------------
 rem Gestao de Turismo - arranque em Windows
 rem 1. compila (se ainda nao houver jars), 2. arranca a API numa janela
 rem minimizada se nao estiver a correr, 3. abre a aplicacao desktop.
+rem Uso (a partir da raiz do projeto): scripts\executar.bat
 rem ------------------------------------------------------------
 setlocal EnableDelayedExpansion
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 if "%TURISMO_DB_PASSWORD%"=="" (
     if not exist "config\turismo.local.properties" (

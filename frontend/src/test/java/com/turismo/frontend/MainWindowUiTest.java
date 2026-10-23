@@ -57,7 +57,7 @@ class MainWindowUiTest {
     private MainWindow open(StubApi api) {
         ApiClient client = new ApiClient(new ClientConfig(api.baseUrl(), Duration.ofSeconds(10)));
         window = edt(() -> {
-            MainWindow w = new MainWindow(client);
+            MainWindow w = MainWindow.withSession(client, TestSessions.signedIn(client));
             w.setSize(new Dimension(1280, 820));
             w.setVisible(true);
             return w;
@@ -123,7 +123,7 @@ class MainWindowUiTest {
         stub.close();
         ApiClient client = new ApiClient(new ClientConfig(url, Duration.ofSeconds(5)));
         window = edt(() -> {
-            MainWindow w = new MainWindow(client);
+            MainWindow w = MainWindow.withSession(client, TestSessions.signedIn(client));
             w.setVisible(true);
             return w;
         });
@@ -220,11 +220,13 @@ class MainWindowUiTest {
         stub = assertDoesNotFail(StubApi::new);
         open(stub);
         JButton theme = edt(() -> find(window.getContentPane(), "tema", JButton.class));
+        // O tema inicial vem das preferências guardadas no computador (claro ou escuro).
+        boolean inicial = edt(Theme::isDark);
         edt(() -> theme.doClick());
-        assertTrue(edt(Theme::isDark));
-        assertEquals("Tema claro", edt(theme::getText));
+        assertEquals(!inicial, edt(Theme::isDark));
+        assertEquals(inicial ? "Tema escuro" : "Tema claro", edt(theme::getText));
         edt(() -> theme.doClick());
-        assertFalse(edt(Theme::isDark));
+        assertEquals(inicial, edt(Theme::isDark));
     }
 
     private FormDialog openDialog() {

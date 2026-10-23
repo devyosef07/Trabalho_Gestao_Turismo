@@ -329,6 +329,10 @@ EXCEPTION
 END Elimina_Turista;
 /
 
+-- A procedure registrar_visita (procedures.sql) usa a funcao Regista_Visita, que
+-- so existe a partir deste script; recompila-se aqui para ficar VALID.
+ALTER PROCEDURE registrar_visita COMPILE;
+
 -- VERIFICAR AS FUNCOES CRIADAS
 SELECT object_name, status FROM user_objects WHERE object_type = 'FUNCTION' ORDER BY object_name;
 

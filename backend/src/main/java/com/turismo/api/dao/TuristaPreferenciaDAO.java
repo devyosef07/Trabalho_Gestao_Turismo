@@ -3,7 +3,6 @@ package com.turismo.api.dao;
 import com.turismo.api.model.TuristaPreferencia;
 import com.turismo.api.util.ConnectionProvider;
 
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
@@ -38,32 +37,18 @@ public class TuristaPreferenciaDAO extends BaseDAO {
 
     /** Usa a procedure inserir_preferencia. */
     public String addTuristaPreferencia(TuristaPreferencia tp) throws SQLException {
-        try (Connection c = connections.get()) {
-            return PlSqlOutput.callProcedure(c, "inserir_preferencia", tp.getIdTurista(), tp.getPreferencia());
-        }
+        return call("inserir_preferencia", tp.getIdTurista(), tp.getPreferencia());
     }
 
-    /**
-     * Troca uma preferência por outra numa só transação.
-     * Não usa atualizar_pref_turista porque essa procedure altera TODAS as
-     * preferências do turista (WHERE só por ID_turista), o que viola a chave
-     * composta quando o turista tem mais do que uma.
-     */
+    /** Usa a procedure atualizar_pref_turista, que troca só a preferência indicada. */
     public boolean updateTuristaPreferencia(String idTurista, String preferenciaAtual, String novaPreferencia)
             throws SQLException {
-        return inTransaction(c -> {
-            int removed = update(c, "DELETE FROM TURISTA_PREFERENCIA WHERE ID_TURISTA = ? AND PREFERENCIA = ?",
-                    idTurista, preferenciaAtual);
-            if (removed == 0) {
-                return false;
-            }
-            update(c, "INSERT INTO TURISTA_PREFERENCIA (ID_TURISTA, PREFERENCIA) VALUES (?, ?)", idTurista, novaPreferencia);
-            return true;
-        });
+        return callIfFound("atualizar_pref_turista", idTurista, preferenciaAtual, novaPreferencia);
     }
 
+    /** Usa a procedure remover_preferencia. */
     public boolean deleteTuristaPreferencia(String idTurista, String preferencia) throws SQLException {
-        return update("DELETE FROM TURISTA_PREFERENCIA WHERE ID_TURISTA = ? AND PREFERENCIA = ?", idTurista, preferencia) > 0;
+        return callIfFound("remover_preferencia", idTurista, preferencia);
     }
 
     private static TuristaPreferencia map(ResultSet rs) throws SQLException {

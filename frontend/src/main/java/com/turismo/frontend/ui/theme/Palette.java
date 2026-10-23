@@ -3,8 +3,10 @@ package com.turismo.frontend.ui.theme;
 import java.awt.Color;
 
 /**
- * Tokens de cor da aplicação. O tema escuro tem valores próprios (não é uma
- * inversão automática do claro).
+ * Tokens de cor da aplicação: identidade azul (azul principal #2563EB sobre
+ * azul profundo #0F172A). O tema escuro tem valores próprios (não é uma
+ * inversão automática do claro); todos os pares texto/fundo têm contraste
+ * de pelo menos 4,5:1.
  */
 public final class Palette {
 
@@ -37,6 +39,18 @@ public final class Palette {
     public final Color accent;
     public final Color chartSeries;
     public final Color chartGrid;
+    /** Fundo de seleção e de destaque suave (linhas de tabela, item escolhido). */
+    public final Color primarySoft;
+    /** Anel de foco do teclado. */
+    public final Color focusRing;
+    /** Cor das sombras (usada com transparência). */
+    public final Color shadow;
+    /** Gradiente da identidade: do mais profundo ao mais vivo. */
+    public final Color brandDeep;
+    public final Color brandMid;
+    public final Color brandBright;
+    /** Luz difusa dos fundos decorativos. */
+    public final Color glow;
 
     private Palette(boolean dark, String... hex) {
         this.dark = dark;
@@ -68,30 +82,46 @@ public final class Palette {
         sidebarMuted = c(hex[i++]);
         accent = c(hex[i++]);
         chartSeries = c(hex[i++]);
-        chartGrid = c(hex[i]);
+        chartGrid = c(hex[i++]);
+        primarySoft = c(hex[i++]);
+        focusRing = c(hex[i++]);
+        shadow = c(hex[i++]);
+        brandDeep = c(hex[i++]);
+        brandMid = c(hex[i++]);
+        brandBright = c(hex[i++]);
+        glow = c(hex[i]);
     }
 
     private static Color c(String hex) {
         return Color.decode(hex);
     }
 
+    /** A mesma cor com outra opacidade (0-255). */
+    public static Color alpha(Color c, int alpha) {
+        return new Color(c.getRed(), c.getGreen(), c.getBlue(), Math.max(0, Math.min(255, alpha)));
+    }
+
     public static final Palette LIGHT = new Palette(false,
-            "#F5F7F6", "#FFFFFF", "#DDE3E0", "#EBEFED",
-            "#17211E", "#4F5B57", "#6B7772",
-            "#1F6B54", "#185A46", "#FFFFFF",
-            "#B3261E", "#FBEAE8", "#8A5A00", "#FFF3D6",
-            "#1E6B3A", "#E5F3EA", "#1D5C8C", "#E5EFF8", "#EEF1F0",
-            "#12352D", "#1A4339", "#21503F", "#CFE0DA", "#FFFFFF", "#8FB0A5",
-            "#D8A330",
-            "#2A78D6", "#E6EAE8");
+            "#F3F6FB", "#FFFFFF", "#DCE3EE", "#EDF1F7",
+            "#0F172A", "#475569", "#64748B",
+            "#2563EB", "#1D4ED8", "#FFFFFF",
+            "#C62828", "#FDECEC", "#A15C07", "#FEF3C7",
+            "#15803D", "#DCFCE7", "#1D4ED8", "#DBEAFE", "#EEF2F8",
+            "#0B1736", "#14244B", "#1C3474", "#C3CEE3", "#FFFFFF", "#8A9AC0",
+            "#60A5FA",
+            "#3B82F6", "#E6EBF3",
+            "#E8F0FE", "#93C5FD", "#0F172A",
+            "#0F172A", "#1E3A8A", "#2563EB", "#93C5FD");
 
     public static final Palette DARK = new Palette(true,
-            "#111614", "#1A211E", "#2C3632", "#242D2A",
-            "#E6ECE9", "#AEBBB6", "#8D9B96",
-            "#3E9C7E", "#4BAE8E", "#07120E",
-            "#F2867E", "#3B201D", "#E8B85A", "#3A2E14",
-            "#6CC28A", "#17301F", "#7FB6E6", "#172A3A", "#232B28",
-            "#0C211C", "#143229", "#1B3E33", "#B9CCC5", "#FFFFFF", "#7E9A90",
-            "#E0B04A",
-            "#3987E5", "#2C3632");
+            "#0A1120", "#111B2E", "#22304A", "#1A263C",
+            "#E5ECF6", "#A9B6CB", "#8F9DB5",
+            "#2E6CE6", "#3B82F6", "#FFFFFF",
+            "#F87171", "#3A1719", "#FBBF24", "#3A2A0C",
+            "#4ADE80", "#0F2E1C", "#93C5FD", "#132A4A", "#18233A",
+            "#070E1E", "#101C36", "#172B57", "#B4C1D9", "#FFFFFF", "#7C8DB0",
+            "#60A5FA",
+            "#60A5FA", "#22304A",
+            "#16294D", "#3B82F6", "#000000",
+            "#050B19", "#102559", "#1D4ED8", "#3B82F6");
 }

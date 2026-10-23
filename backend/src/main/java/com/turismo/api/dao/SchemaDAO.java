@@ -22,10 +22,14 @@ public class SchemaDAO extends BaseDAO {
             "v_lista_reservas", "v_lista_pagamentos", "v_lista_visitas", "v_lista_reserva_alojamentos",
             "v_lista_operador_turistas", "v_lista_operador_transportes", "v_lista_operador_alojamentos");
 
-    /** As 24 views de relatório seguidas das 15 de listagem. */
+    /** Views das contas de utilizador e sessões (database/contas.sql). */
+    public static final List<String> AUTH_VIEWS = List.of("v_conta_credenciais", "v_sessao_ativa");
+
+    /** As 24 views de relatório, as 15 de listagem e as 2 das contas. */
     public static List<String> expectedViews() {
         List<String> all = new ArrayList<>(RelatorioDAO.VIEWS.keySet());
         all.addAll(LIST_VIEWS);
+        all.addAll(AUTH_VIEWS);
         return all;
     }
 

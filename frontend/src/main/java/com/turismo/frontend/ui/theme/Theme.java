@@ -75,6 +75,10 @@ public final class Theme {
         listeners.add(r);
     }
 
+    public static void removeListener(Runnable r) {
+        listeners.remove(r);
+    }
+
     private static void apply(boolean dark) {
         palette = dark ? Palette.DARK : Palette.LIGHT;
         Palette p = palette;
@@ -82,23 +86,32 @@ public final class Theme {
         extra.put("@accentColor", hex(p.primary));
         extra.put("@background", hex(p.page));
         extra.put("@foreground", hex(p.text));
-        extra.put("Component.arc", "8");
-        extra.put("Button.arc", "8");
-        extra.put("TextComponent.arc", "8");
-        extra.put("CheckBox.arc", "4");
+        extra.put("Component.arc", "10");
+        extra.put("Button.arc", "10");
+        extra.put("TextComponent.arc", "10");
+        extra.put("CheckBox.arc", "5");
         extra.put("Component.focusWidth", "2");
         extra.put("Component.innerFocusWidth", "0");
-        extra.put("Button.margin", "6,14,6,14");
-        extra.put("TextField.margin", "5,8,5,8");
-        extra.put("Table.rowHeight", "34");
+        extra.put("Component.focusColor", hex(p.focusRing));
+        extra.put("Component.focusedBorderColor", hex(p.primary));
+        extra.put("Component.borderColor", hex(p.border));
+        extra.put("Button.margin", "7,16,7,16");
+        extra.put("Button.hoverBorderColor", hex(p.primary));
+        extra.put("TextField.margin", "6,10,6,10");
+        extra.put("PasswordField.margin", "6,10,6,10");
+        extra.put("PasswordField.showRevealButton", "true");
+        extra.put("ComboBox.padding", "5,10,5,10");
+        extra.put("Table.rowHeight", "38");
         extra.put("Table.background", hex(p.card));
         extra.put("Table.showHorizontalLines", "true");
         extra.put("Table.showVerticalLines", "false");
         extra.put("Table.gridColor", hex(p.line));
         extra.put("Table.intercellSpacing", "0,1");
+        extra.put("Table.selectionBackground", hex(p.primarySoft));
+        extra.put("Table.selectionForeground", hex(p.text));
         extra.put("Table.selectionInactiveBackground", hex(p.neutralSurface));
         extra.put("Table.selectionInactiveForeground", hex(p.text));
-        extra.put("TableHeader.height", "36");
+        extra.put("TableHeader.height", "38");
         extra.put("TableHeader.background", hex(p.card));
         extra.put("TableHeader.separatorColor", hex(p.card));
         extra.put("TableHeader.bottomSeparatorColor", hex(p.border));
@@ -108,10 +121,19 @@ public final class Theme {
         extra.put("ScrollBar.thumbArc", "999");
         extra.put("ScrollBar.thumbInsets", "2,2,2,2");
         extra.put("ScrollBar.showButtons", "false");
-        extra.put("TabbedPane.tabHeight", "36");
+        extra.put("TabbedPane.tabHeight", "38");
         extra.put("TabbedPane.selectedBackground", hex(p.page));
         extra.put("TabbedPane.underlineColor", hex(p.primary));
         extra.put("TabbedPane.tabSelectionHeight", "2");
+        extra.put("PopupMenu.borderCornerRadius", "10");
+        extra.put("Popup.borderCornerRadius", "10");
+        extra.put("MenuItem.selectionBackground", hex(p.primarySoft));
+        extra.put("MenuItem.selectionForeground", hex(p.text));
+        extra.put("MenuItem.selectionArc", "8");
+        extra.put("MenuItem.selectionInsets", "0,6,0,6");
+        extra.put("MenuItem.margin", "6,10,6,10");
+        extra.put("ProgressBar.arc", "999");
+        extra.put("CheckBox.icon.focusWidth", "2");
         extra.put("ToolTip.background", hex(dark ? p.neutralSurface : p.text));
         extra.put("ToolTip.foreground", hex(dark ? p.text : p.card));
         extra.put("ToolTip.border", "6,10,6,10");
@@ -179,7 +201,7 @@ public final class Theme {
     }
 
     public static Font title() {
-        return font(semibold, Font.BOLD, 22f);
+        return font(semibold, Font.BOLD, 24f);
     }
 
     public static Font section() {
@@ -188,6 +210,16 @@ public final class Theme {
 
     public static Font figure() {
         return font(medium, Font.PLAIN, 28f);
+    }
+
+    /** Títulos dos ecrãs de autenticação. */
+    public static Font display() {
+        return font(semibold, Font.BOLD, 28f);
+    }
+
+    /** Título do ecrã de boas-vindas. */
+    public static Font hero() {
+        return font(semibold, Font.BOLD, 40f);
     }
 
     private static Font font(Font base, int fallbackStyle, float size) {

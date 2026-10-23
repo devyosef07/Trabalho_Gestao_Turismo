@@ -1,6 +1,7 @@
 package com.turismo.frontend.ui.components;
 
 import com.turismo.frontend.ui.theme.Icons;
+import com.turismo.frontend.ui.theme.Palette;
 import com.turismo.frontend.ui.theme.Theme;
 import org.kordamp.ikonli.Ikon;
 
@@ -33,9 +34,8 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Navegação lateral agrupada. A secção ativa é marcada por fundo, peso do texto
- * e um traço ocre que desliza até ela (150 ms) — a única animação contínua da
- * aplicação. Navegável por teclado: Tab chega aos itens e Enter/Espaço ativa.
+ * Navegação lateral agrupada, sobre um azul profundo. A secção ativa é marcada
+ * por fundo, peso do texto e um traço azul-claro que desliza até ela (150 ms). Navegável por teclado: Tab chega aos itens e Enter/Espaço ativa.
  */
 public class Sidebar extends JPanel {
 
@@ -73,11 +73,20 @@ public class Sidebar extends JPanel {
         brand.setOpaque(false);
         brand.setLayout(new BoxLayout(brand, BoxLayout.Y_AXIS));
         brand.setBorder(UI.pad(UI.S5, UI.S5, UI.S3, UI.S4));
-        JLabel name = UI.text(appName, () -> Theme.section().deriveFont(17f), () -> Theme.p().sidebarTextActive);
+        JLabel name = UI.text(appName, () -> Theme.section().deriveFont(16f), () -> Theme.p().sidebarTextActive);
         JLabel sub = UI.text(appSubtitle, Theme::small, () -> Theme.p().sidebarMuted);
-        brand.add(name);
-        brand.add(Box.createVerticalStrut(2));
-        brand.add(sub);
+        JPanel names = new JPanel();
+        names.setOpaque(false);
+        names.setLayout(new BoxLayout(names, BoxLayout.Y_AXIS));
+        names.add(name);
+        names.add(Box.createVerticalStrut(1));
+        names.add(sub);
+        JPanel row = new JPanel(new BorderLayout(UI.S3, 0));
+        row.setOpaque(false);
+        row.add(new JLabel(new BrandMark(36)), BorderLayout.WEST);
+        row.add(names, BorderLayout.CENTER);
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        brand.add(row);
         add(brand, BorderLayout.NORTH);
 
         items.setOpaque(false);
@@ -104,6 +113,25 @@ public class Sidebar extends JPanel {
         return Theme.p().sidebar;
     }
 
+    /** Azul profundo com um gradiente vertical e uma luz difusa no topo. */
+    @Override
+    protected void paintComponent(Graphics g) {
+        Graphics2D g2 = (Graphics2D) g.create();
+        int w = getWidth();
+        int h = getHeight();
+        Color bottom = Backdrop.mix(Theme.p().sidebar, Theme.p().brandMid, 0.35f);
+        g2.setPaint(new java.awt.GradientPaint(0, 0, Theme.p().sidebar, 0, h, bottom));
+        g2.fillRect(0, 0, w, h);
+        float r = w * 1.1f;
+        g2.setPaint(new java.awt.RadialGradientPaint(new java.awt.geom.Point2D.Float(w * 0.15f, 0), r,
+                new float[]{0f, 1f}, new Color[]{Palette.alpha(Theme.p().brandBright, 46),
+                Palette.alpha(Theme.p().brandBright, 0)}));
+        g2.fillRect(0, 0, w, Math.round(r));
+        g2.setColor(new Color(255, 255, 255, 14));
+        g2.drawLine(w - 1, 0, w - 1, h);
+        g2.dispose();
+    }
+
     public void addGroup(String title) {
         if (items.getComponentCount() > 0) {
             items.add(Box.createVerticalStrut(UI.S3));
@@ -127,7 +155,7 @@ public class Sidebar extends JPanel {
         footer.add(c, BorderLayout.CENTER);
     }
 
-    /** Marca o item como ativo sem disparar a navegação. */
+    /** Marca o item como ativo sem disparar a navegação; um id sem item (ex.: "conta") não marca nenhum. */
     public void setActive(String id) {
         for (Item item : all) {
             if (item.id.equals(id)) {
@@ -139,6 +167,11 @@ public class Sidebar extends JPanel {
                 return;
             }
         }
+        active = null;
+        anim.stop();
+        indicatorY = -1;
+        all.forEach(Component::repaint);
+        items.repaint();
     }
 
     public String getActive() {
@@ -182,7 +215,7 @@ public class Sidebar extends JPanel {
         }
     }
 
-    /** Traço ocre do item ativo, desenhado no próprio painel dos itens (mesmas coordenadas). */
+    /** Traço do item ativo, desenhado no próprio painel dos itens (mesmas coordenadas). */
     private void paintIndicator(Graphics g) {
         if (active == null || active.getHeight() == 0) {
             return;

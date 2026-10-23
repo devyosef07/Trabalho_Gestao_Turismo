@@ -35,7 +35,7 @@ alter session set nls_date_format = 'DD-MM-YYYY';
 -- 4. Triggers (antes dos dados, para os INSERT já serem validados)
 @@Triggers.sql
 
--- 5. Procedures
+-- 5. Procedures (as 16 do enunciado e as 27 de manutenção: criar, alterar, eliminar)
 @@procedures.sql
 
 -- 6. Dados de teste
@@ -47,6 +47,9 @@ COMMIT;
 
 -- 8. Views
 @@views.sql
+
+-- 8b. Contas de utilizador e sessões da aplicação (tabelas, 2 views e 4 procedures)
+@@contas.sql
 
 -- 9. Cálculo do espaço por atributo (o resultado vai para o relatório)
 SPOOL relatorio_calculo2.txt
@@ -61,7 +64,7 @@ SELECT privilege FROM session_privs WHERE privilege = 'CREATE VIEW';
 SELECT object_type, object_name, status FROM user_objects WHERE status <> 'VALID' ORDER BY object_type, object_name;
 SELECT name, type, line, position, text FROM user_errors ORDER BY name, sequence;
 
--- Views: devem existir 24
+-- Views: devem existir 41 (39 de views.sql + 2 de contas.sql)
 SELECT COUNT(*) AS total_views FROM user_views;
 
 SET ECHO OFF

@@ -30,6 +30,7 @@ import javax.swing.JTextArea;
 import javax.swing.JToggleButton;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
+import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -85,10 +86,13 @@ public class DashboardPage extends Surface implements Page {
     private final Section ativas = new Section("Reservas ativas", "Pendentes ou confirmadas, view v_reservas_ativas");
     private final IntegritySection integridade = new IntegritySection();
     private final StateView pageState = new StateView();
+    private Card totalsCard;
     private final CardLayout pageCards = new CardLayout();
     private final JPanel pageHost = new JPanel(pageCards);
     private final JButton refresh = UI.iconButton(MaterialDesignR.REFRESH, "Atualizar (F5)");
+    private final JLabel greeting = UI.text(" ", Theme::label, () -> Theme.isDark() ? Theme.p().accent : Theme.p().primary);
     private boolean loading;
+    private boolean revealed;
     private int pending;
 
     public DashboardPage(ApiClient api, Consumer<String> navigate) {
@@ -103,6 +107,9 @@ public class DashboardPage extends Surface implements Page {
         JPanel titles = new JPanel();
         titles.setOpaque(false);
         titles.setLayout(new BoxLayout(titles, BoxLayout.Y_AXIS));
+        greeting.setName("saudacao");
+        greeting.setVisible(false);
+        titles.add(greeting);
         titles.add(UI.title("Painel"));
         titles.add(Box.createVerticalStrut(2));
         titles.add(UI.secondary("Situação atual da agência, lida diretamente da base de dados Oracle."));
@@ -165,6 +172,7 @@ public class DashboardPage extends Surface implements Page {
 
     private JComponent buildTotals() {
         Card card = new Card(new GridLayout(1, TOTALS.length + 1));
+        totalsCard = card;
         card.setName("totais");
         card.setBorder(UI.pad(UI.S4, 0, UI.S4, 0));
         for (String[] total : TOTALS) {
@@ -213,6 +221,35 @@ public class DashboardPage extends Surface implements Page {
             });
         }
         return p;
+    }
+
+    /** Saudação com o primeiro nome da conta com sessão iniciada ("Boa tarde, Maria"). */
+    public void setGreeting(String fullName) {
+        if (fullName == null || fullName.isBlank()) {
+            greeting.setVisible(false);
+            return;
+        }
+        int hour = java.time.LocalTime.now().getHour();
+        String part = hour < 12 ? "Bom dia" : hour < 20 ? "Boa tarde" : "Boa noite";
+        greeting.setText(part + ", " + fullName.trim().split("\\s+")[0]);
+        greeting.setBorder(UI.pad(0, 0, 2, 0));
+        greeting.setVisible(true);
+    }
+
+    public String greetingText() {
+        return greeting.isVisible() ? greeting.getText() : null;
+    }
+
+    /** Os cartões entram um a um na primeira vez que há dados (60 ms de intervalo). */
+    private void revealOnce() {
+        if (revealed) {
+            return;
+        }
+        revealed = true;
+        Component[] order = {totalsCard, receitaMensal, integridade, receitaNacionalidade, atracoes, ativas};
+        for (int i = 0; i < order.length; i++) {
+            ((Card) order[i]).reveal(i * 60);
+        }
     }
 
     // ------------------------------------------------------------- Page
@@ -273,6 +310,7 @@ public class DashboardPage extends Surface implements Page {
 
     private void render(JsonObject data) {
         pageCards.show(pageHost, "content");
+        revealOnce();
         JsonObject views = data.getAsJsonObject("views");
         for (String[] total : TOTALS) {
             renderTotal(totals.get(total[0]), views.getAsJsonObject(total[3]), total[3], total[4]);

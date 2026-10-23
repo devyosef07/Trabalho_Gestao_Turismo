@@ -23,6 +23,8 @@ final class StubApi implements AutoCloseable {
     private final HttpServer server;
     private final Map<String, Reply> replies = new ConcurrentHashMap<>();
     final List<String> requests = new CopyOnWriteArrayList<>();
+    /** Cabeçalho Authorization de cada pedido ("" quando não foi enviado), pela mesma ordem. */
+    final List<String> authorizations = new CopyOnWriteArrayList<>();
 
     StubApi() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -30,6 +32,8 @@ final class StubApi implements AutoCloseable {
         server.createContext("/api", exchange -> {
             String key = exchange.getRequestMethod() + " " + exchange.getRequestURI().getPath().substring(4);
             requests.add(key);
+            String auth = exchange.getRequestHeaders().getFirst("Authorization");
+            authorizations.add(auth == null ? "" : auth);
             Reply r = replies.getOrDefault(key, new Reply(200, "[]", 0));
             if (key.equals("GET /dominios") && !replies.containsKey(key)) {
                 r = new Reply(200, "{}", 0);

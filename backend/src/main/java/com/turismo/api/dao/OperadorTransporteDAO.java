@@ -48,9 +48,9 @@ public class OperadorTransporteDAO extends BaseDAO {
         }
     }
 
+    /** Usa a procedure remover_operador_transporte. */
     public boolean deleteOperadorTransporte(String idOperador, String idTransporte) throws SQLException {
-        return update("DELETE FROM OPERADOR_TRANSPORTE WHERE ID_OPERADOR = ? AND ID_TRANSPORTE = ?",
-                idOperador, idTransporte) > 0;
+        return callIfFound("remover_operador_transporte", idOperador, idTransporte);
     }
 
     private static OperadorTransporte map(ResultSet rs) throws SQLException {

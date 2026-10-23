@@ -171,11 +171,16 @@ public class BarChart extends JComponent {
             g.drawLine(gx, y, gx, bottom - GAP);
         }
         g.setColor(Theme.p().textMuted);
+        // Em cartões estreitos as marcas não cabem todas: salta as que ficariam por cima da anterior.
+        int lastRight = Integer.MIN_VALUE;
         for (int i = 0; i <= 4; i++) {
             String tick = axisFormat.apply(top * i / 4.0);
             int gx = x0 + (int) Math.round(plotWidth * i / 4.0);
-            g.drawString(tick, Math.min(gx - fm.stringWidth(tick) / 2, getWidth() - fm.stringWidth(tick)),
-                    bottom + fm.getAscent());
+            int tx = Math.min(gx - fm.stringWidth(tick) / 2, getWidth() - fm.stringWidth(tick));
+            if (tx > lastRight + UI.S1) {
+                g.drawString(tick, tx, bottom + fm.getAscent());
+                lastRight = tx + fm.stringWidth(tick);
+            }
         }
 
         for (int i = 0; i < points.size(); i++) {

@@ -3,6 +3,7 @@ package com.turismo.frontend;
 import com.turismo.frontend.api.ApiClient;
 import com.turismo.frontend.api.ClientConfig;
 import com.turismo.frontend.modules.Format;
+import com.turismo.frontend.ui.motion.Motion;
 import com.turismo.frontend.ui.theme.Theme;
 
 import javax.swing.SwingUtilities;
@@ -11,6 +12,9 @@ import java.util.Locale;
 /**
  * Main application class for the Turismo Management System
  * Launches the main application window
+ *
+ * A janela começa pelo início de sessão (ou retoma a sessão guardada): os
+ * dados só aparecem depois de a API aceitar as credenciais.
  *
  * A aplicação comunica com a base de dados através da API REST do backend
  * (com.turismo.api.TurismoApiServer), cujo endereço está em config/turismo.properties.
@@ -27,6 +31,8 @@ public class MainApplication {
         System.setProperty("flatlaf.uiScale.allowScaleDown", "true");
         ClientConfig config = ClientConfig.load();
         ApiClient api = new ApiClient(config);
+        // Lê já a preferência "reduzir movimento" do sistema, fora da EDT.
+        Motion.isReduced();
 
         // Use the event dispatch thread for Swing components
         SwingUtilities.invokeLater(() -> {

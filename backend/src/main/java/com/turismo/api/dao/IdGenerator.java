@@ -1,13 +1,10 @@
 package com.turismo.api.dao;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 
 /**
- * Gera identificadores no formato usado em Inserts.sql: prefixo + número da
- * sequência com 3 dígitos (ex.: 'DT-' || LPAD(ID_destino.NEXTVAL, 3, '0')).
+ * Prefixos dos identificadores gerados pelas procedures registrar_* com a
+ * sequência, no formato de Inserts.sql (ex.: 'DT-' || LPAD(ID_destino.NEXTVAL, 3, '0')).
+ * O código criado é lido da mensagem da procedure ({@link PlSqlOutput#callProcedureForNewId}).
  */
 public final class IdGenerator {
 
@@ -31,47 +28,9 @@ public final class IdGenerator {
         }
     }
 
-    @FunctionalInterface
-    public interface Insert {
-        void run(String id) throws SQLException;
-    }
-
     /** Tentativas quando o número gerado já está ocupado (ex.: dados inseridos à mão). */
     static final int MAX_ATTEMPTS = 20;
 
     private IdGenerator() {
-    }
-
-    static String sql(Sequence seq) {
-        return "SELECT '" + seq.prefix + "' || LPAD(" + seq.sequenceName + ".NEXTVAL, 3, '0') FROM dual";
-    }
-
-    public static String next(Connection c, Sequence seq) throws SQLException {
-        try (PreparedStatement ps = c.prepareStatement(sql(seq));
-             ResultSet rs = ps.executeQuery()) {
-            rs.next();
-            return rs.getString(1);
-        }
-    }
-
-    /**
-     * Insere com um novo identificador; se esse identificador já existir
-     * (ORA-00001), pede o seguinte à sequência.
-     */
-    public static String insertWithNewId(Connection c, Sequence seq, Insert insert) throws SQLException {
-        SQLException last = null;
-        for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-            String id = next(c, seq);
-            try {
-                insert.run(id);
-                return id;
-            } catch (SQLException e) {
-                if (e.getErrorCode() != 1) {
-                    throw e;
-                }
-                last = e;
-            }
-        }
-        throw last;
     }
 }

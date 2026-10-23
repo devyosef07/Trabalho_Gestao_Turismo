@@ -53,7 +53,7 @@ public class TuristaDestinoHandler extends BaseHandler {
                         .required("dataVisita", td.getDataVisita())
                         .throwIfInvalid();
                 String msg = turistaDestinoDAO.addTuristaDestino(td);
-                r.created(message(msg + ".", turistaDestinoDAO.getTuristaDestino(
+                r.created(message(msg, turistaDestinoDAO.getTuristaDestino(
                         td.getIdDestino(), td.getIdTurista(), td.getDataVisita())));
             } else {
                 throw methodNotAllowed();

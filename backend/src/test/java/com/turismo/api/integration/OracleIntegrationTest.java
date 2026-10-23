@@ -54,9 +54,9 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * Testes contra a base de dados Oracle 10g real (config/turismo.properties +
  * TURISMO_DB_PASSWORD). Ficam "skipped" se a BD não estiver acessível.
  *
- * Política de escrita: tudo o que altera dados corre numa ligação em
- * transação que é desfeita no fim (ROLLBACK). As funções/procedures que fazem
- * COMMIT por dentro só são chamadas em caminhos de erro, que não gravam nada.
+ * Política de escrita: todas as escritas são procedures/funções que fazem
+ * COMMIT por dentro, por isso só são chamadas em caminhos de erro (registo
+ * inexistente, regra violada), que não gravam nada.
  * Nota: um INSERT que chega a pedir NEXTVAL consome esse número da sequência
  * (as sequências do Oracle não voltam atrás com ROLLBACK).
  */
@@ -206,133 +206,42 @@ class OracleIntegrationTest {
         assertEquals("Nenhum destino tem o identificador indicado", new DestinoDAO().getInfo("ZZ-999").get("info"));
     }
 
-    // ------------------------------------------- escritas com ROLLBACK
+    // ------------------- escritas (procedures com COMMIT): só caminhos que não gravam
 
     @Test
-    void criaAtualizaEApagaDestinoNumaTransacaoDesfeita() throws SQLException {
-        requireListViews();
-        int before = new DestinoDAO().getAllDestinos().size();
-        try (RollbackConnection tx = new RollbackConnection()) {
-            DestinoDAO dao = new DestinoDAO(tx.provider());
-            String id = dao.addDestino(new Destino(null, "[TESTE] Ilha de Moçambique", "Nampula", 120));
-            assertTrue(id.matches("DT-\\d{3}"), id);
-            Destino d = dao.getDestinoById(id);
-            assertEquals("[TESTE] Ilha de Moçambique", d.getNomeDestino());
-            d.setCapacidadeVisitantes(150);
-            assertTrue(dao.updateDestino(d));
-            assertEquals(150, dao.getDestinoById(id).getCapacidadeVisitantes());
-            assertTrue(dao.deleteDestino(id));
-            assertNull(dao.getDestinoById(id));
-        }
-        assertEquals(before, new DestinoDAO().getAllDestinos().size(), "o ROLLBACK desfez tudo");
+    void constraintCheckDaBdRejeitaRegiaoInvalida() {
+        ApiException e = assertThrows(ApiException.class, () -> new DestinoDAO()
+                .addDestino(new Destino(null, "[TESTE]", "Lisboa", 10)));
+        assertEquals("REGRA_VIOLADA", e.getCode());
+        assertTrue(e.getMessage().contains("regiao in"), e.getMessage());
     }
 
     @Test
-    void constraintCheckDaBdRejeitaRegiaoInvalida() throws SQLException {
-        try (RollbackConnection tx = new RollbackConnection()) {
-            SQLException e = assertThrows(SQLException.class, () -> new DestinoDAO(tx.provider())
-                    .addDestino(new Destino(null, "[TESTE]", "Lisboa", 10)));
-            ApiException api = DbErrors.translate(e);
-            assertEquals("REGRA_VIOLADA", api.getCode());
-            assertTrue(api.getMessage().contains("regiao in"), api.getMessage());
-        }
-    }
-
-    @Test
-    void transporteEOperadorComRollback() throws SQLException {
-        requireListViews();
-        try (RollbackConnection tx = new RollbackConnection()) {
-            TransporteDAO t = new TransporteDAO(tx.provider());
-            String id = t.addTransporte(new Transporte(null, "[TESTE] Barco", 12, "Nao"));
-            assertEquals("Nao", t.getTransporteById(id).getDisponibilidade());
-            assertTrue(t.deleteTransporte(id));
-
-            OperadorDAO o = new OperadorDAO(tx.provider());
-            String op = o.addOperador(new com.turismo.api.model.Operador(null, "[TESTE] Operador", "Teste",
-                    new java.math.BigDecimal("4.5")));
-            assertTrue(op.matches("OP-\\d{3}"), op);
-            assertEquals(0, new java.math.BigDecimal("4.5").compareTo(o.getOperadorById(op).getClassOperador()));
-            assertTrue(o.deleteOperador(op));
-        }
-    }
-
-    @Test
-    void trocaDePreferenciaEhAtomica() throws SQLException {
-        requireListViews();
-        List<TuristaPreferencia> prefs = new TuristaPreferenciaDAO().getAllTuristaPreferencias();
-        assumeTrue(!prefs.isEmpty(), "sem preferências");
-        TuristaPreferencia p = prefs.get(0);
-        String nova = ConstraintCatalog.domain(ConnectionProvider.DEFAULT, "TURISTA_PREFERENCIA", "PREFERENCIA").stream()
-                .filter(v -> prefs.stream().noneMatch(x -> x.getIdTurista().equals(p.getIdTurista()) && x.getPreferencia().equals(v)))
-                .findFirst().orElseThrow();
-        try (RollbackConnection tx = new RollbackConnection()) {
-            TuristaPreferenciaDAO dao = new TuristaPreferenciaDAO(tx.provider());
-            assertTrue(dao.updateTuristaPreferencia(p.getIdTurista(), p.getPreferencia(), nova));
-            assertNull(dao.getTuristaPreferencia(p.getIdTurista(), p.getPreferencia()));
-            assertNotNull(dao.getTuristaPreferencia(p.getIdTurista(), nova));
-        }
-        assertNotNull(new TuristaPreferenciaDAO().getTuristaPreferencia(p.getIdTurista(), p.getPreferencia()));
-    }
-
-    @Test
-    void atualizacoesDeTuristaETipoComRollback() throws SQLException {
-        requireListViews();
-        List<Turista> turistas = new TuristaDAO().getAllTuristas();
-        List<TipoAlojamento> tipos = new TipoAlojamentoDAO().getAllTipoAlojamentos();
-        assumeTrue(!turistas.isEmpty() && !tipos.isEmpty());
-        try (RollbackConnection tx = new RollbackConnection()) {
-            Turista t = turistas.get(0);
-            TuristaDAO dao = new TuristaDAO(tx.provider());
-            assertTrue(dao.updateTurista(new Turista(t.getIdTurista(), "[TESTE] Nome", t.getNacionalidade())));
-            assertEquals("[TESTE] Nome", dao.getTuristaById(t.getIdTurista()).getNomeTurista());
-
-            TipoAlojamentoDAO tdao = new TipoAlojamentoDAO(tx.provider());
-            TipoAlojamento tipo = tipos.get(0);
-            assertTrue(tdao.updateTipoAlojamento(new TipoAlojamento(tipo.getTipoAlojamento(), 9)));
-            assertEquals(9, tdao.getTipoAlojamentoById(tipo.getTipoAlojamento()).getCapAlojamento());
-        }
-        assertEquals(turistas.get(0).getNomeTurista(),
-                new TuristaDAO().getTuristaById(turistas.get(0).getIdTurista()).getNomeTurista());
-    }
-
-    @Test
-    void escritaEmAtracaoRefleteOEstadoDoTrigger() throws SQLException {
-        requireListViews();
-        List<Destino> destinos = new DestinoDAO().getAllDestinos();
-        assumeTrue(!destinos.isEmpty());
-        try (RollbackConnection tx = new RollbackConnection()) {
-            AtracaoDAO dao = new AtracaoDAO(tx.provider());
-            Atracao a = new Atracao(null, "Praia", "[TESTE]", "08:00", "17:00", null, null, null,
-                    destinos.get(0).getIdDestino());
-            if (invalid("VALIDARHORABERTURA")) {
-                SQLException e = assertThrows(SQLException.class, () -> dao.addAtracao(a));
-                assertEquals("TRIGGER_INVALIDO", DbErrors.translate(e).getCode());
-            } else {
-                String id = dao.addAtracao(a);
-                assertEquals("08:00", dao.getAtracaoById(id).getHoraAbertura());
-            }
-        }
-    }
-
-    @Test
-    void criacaoDeReservaRefleteOEstadoDosTriggers() throws SQLException {
-        requireListViews();
-        List<Turista> turistas = new TuristaDAO().getAllTuristas();
-        assumeTrue(!turistas.isEmpty());
-        try (RollbackConnection tx = new RollbackConnection()) {
-            ReservaDAO dao = new ReservaDAO(tx.provider());
-            Reserva r = new Reserva(null, LocalDate.now().plusDays(30), LocalDate.now().plusDays(33), "PENDENTE",
-                    turistas.get(0).getIdTurista());
-            if (invalid("VALIDARDATACHEGADA") || invalid("VALIDARDATAPARTIDA")) {
-                SQLException e = assertThrows(SQLException.class, () -> dao.addReserva(r, List.of()));
-                assertEquals("TRIGGER_INVALIDO", DbErrors.translate(e).getCode());
-            } else {
-                String id = dao.addReserva(r, List.of());
-                Reserva saved = dao.getReservaById(id);
-                assertEquals(3, saved.getNoites());
-                assertEquals("Falta alojamento e pagamento", saved.getEstadoCompletude());
-            }
-        }
+    void proceduresDeAlteracaoEEliminacaoIndicamRegistoInexistente() throws SQLException {
+        String x = "ZZ-999";
+        assertFalse(new DestinoDAO().updateDestino(new Destino(x, "[TESTE]", "Nampula", 10)));
+        assertFalse(new DestinoDAO().deleteDestino(x));
+        assertFalse(new AlojamentoDAO().updateAlojamento(
+                new com.turismo.api.model.Alojamento(x, "[TESTE]", null, "Casal", "DT-001")));
+        assertFalse(new AlojamentoDAO().deleteAlojamento(x));
+        assertFalse(new TransporteDAO().updateTransporte(new Transporte(x, "[TESTE]", 10, "Sim")));
+        assertFalse(new TransporteDAO().deleteTransporte(x));
+        assertFalse(new OperadorDAO().updateOperador(new com.turismo.api.model.Operador(x, "[TESTE]", "Teste", null)));
+        assertFalse(new OperadorDAO().deleteOperador(x));
+        assertFalse(new AtracaoDAO().deleteAtracao(x));
+        assertFalse(new ReservaDAO().deleteReserva(x));
+        assertFalse(new PagamentoDAO().updatePagamento(new com.turismo.api.model.Pagamento(x,
+                new java.math.BigDecimal("100"), LocalDate.now().minusDays(1), "DINHEIRO", "PENDENTE", null, null, "RS-001")));
+        assertFalse(new PagamentoDAO().deletePagamento(x));
+        assertFalse(new TipoAlojamentoDAO().updateTipoAlojamento(new TipoAlojamento("[TESTE]", 2)));
+        assertFalse(new TipoAlojamentoDAO().deleteTipoAlojamento("[TESTE]"));
+        assertFalse(new TuristaDAO().updateTurista(new Turista(x, "[TESTE]", "Teste")));
+        assertFalse(new TuristaPreferenciaDAO().deleteTuristaPreferencia(x, "Praias"));
+        assertFalse(new TuristaDestinoDAO().deleteTuristaDestino(x, x, LocalDate.now()));
+        assertFalse(new ReservaAlojamentoDAO().deleteReservaAlojamento(x, x));
+        assertFalse(new OperadorTuristaDAO().deleteOperadorTurista(x, x));
+        assertFalse(new OperadorTransporteDAO().deleteOperadorTransporte(x, x));
+        assertFalse(new OperadorAlojamentoDAO().deleteOperadorAlojamento(x, x));
     }
 
     // ------------------- funções/procedures: só caminhos que não gravam
@@ -349,6 +258,30 @@ class OracleIntegrationTest {
 
         ApiException e3 = assertThrows(ApiException.class, () -> new TuristaDAO().deleteTurista("ZZ-999"));
         assertEquals(404, e3.getStatus());
+    }
+
+    @Test
+    void proceduresDeEscritaDevolvemErrosTratados() throws SQLException {
+        ApiException e1 = assertThrows(ApiException.class, () -> new AtracaoDAO().addAtracao(
+                new Atracao(null, "Praia", "[TESTE]", "08:00", "17:00", null, null, null, "ZZ-999")));
+        assertEquals("REFERENCIA_INEXISTENTE", e1.getCode());
+
+        ApiException e2 = assertThrows(ApiException.class, () -> new ReservaDAO().addReserva(
+                new Reserva(null, LocalDate.now().plusDays(30), LocalDate.now().plusDays(33), "PENDENTE", "ZZ-999"),
+                List.of()));
+        assertEquals("REFERENCIA_INEXISTENTE", e2.getCode());
+
+        ApiException e3 = assertThrows(ApiException.class, () -> new PagamentoDAO().addPagamento(
+                new com.turismo.api.model.Pagamento(null, new java.math.BigDecimal("100"), LocalDate.now().minusDays(1),
+                        "DINHEIRO", "PENDENTE", null, "[TESTE]", "ZZ-999")));
+        assertEquals("REFERENCIA_INEXISTENTE", e3.getCode());
+
+        // atualizar_pref_turista e alterar_horario_atracao / alterar_datas_reserva: registo inexistente
+        assertFalse(new TuristaPreferenciaDAO().updateTuristaPreferencia("ZZ-999", "Praias", "Cultura"));
+        assertFalse(new AtracaoDAO().updateAtracao(
+                new Atracao("ZZ-999", "Praia", "[TESTE]", "08:00", "17:00", null, null, null, "DT-001")));
+        assertFalse(new ReservaDAO().updateReserva(
+                new Reserva("ZZ-999", LocalDate.now().plusDays(30), LocalDate.now().plusDays(33), "PENDENTE", "TR-001")));
     }
 
     @Test
@@ -379,6 +312,6 @@ class OracleIntegrationTest {
     @Test
     void estadoDoEsquemaEhCoerente() {
         assertFalse(((String) schema.get("database")).isEmpty());
-        assertEquals(39, schema.get("viewsEsperadas"), "24 de relatório + 15 de listagem");
+        assertEquals(41, schema.get("viewsEsperadas"), "24 de relatório + 15 de listagem + 2 das contas");
     }
 }

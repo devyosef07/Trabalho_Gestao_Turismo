@@ -100,7 +100,9 @@ final class SwingTestSupport {
         // Espera pelo fim de animações (ex.: indicador da navegação) para a captura ser estável.
         waitFor("animações", 2_000, () -> {
             java.awt.Window w = SwingUtilities.getWindowAncestor(c);
-            return !(w instanceof MainWindow) || !((MainWindow) w).sidebar().isAnimating();
+            boolean sidebar = w instanceof MainWindow && ((MainWindow) w).isAuthenticated()
+                    && ((MainWindow) w).sidebar().isAnimating();
+            return !sidebar && com.turismo.frontend.ui.motion.Motion.activeCount() == 0;
         });
         File dir = new File("target/screenshots");
         dir.mkdirs();

@@ -33,21 +33,21 @@ public class DestinoDAO extends BaseDAO {
         return queryOne(SELECT + " WHERE ID_DESTINO = ?", DestinoDAO::map, id);
     }
 
-    /** Insere o destino e devolve o identificador gerado pela sequência ID_destino. */
+    /** Usa a procedure registrar_destino; devolve o código gerado pela sequência ID_destino. */
     public String addDestino(Destino destino) throws SQLException {
-        return inTransaction(c -> IdGenerator.insertWithNewId(c, IdGenerator.Sequence.DESTINO, id ->
-                update(c, "INSERT INTO DESTINO (ID_DESTINO, NOME_DESTINO, REGIAO, CAPACIDADE_VISITANTES) VALUES (?, ?, ?, ?)",
-                        id, destino.getNomeDestino(), destino.getRegiao(), destino.getCapacidadeVisitantes())));
+        return callForNewId(IdGenerator.Sequence.DESTINO, "registrar_destino",
+                destino.getNomeDestino(), destino.getRegiao(), destino.getCapacidadeVisitantes());
     }
 
+    /** Usa a procedure atualizar_destino. */
     public boolean updateDestino(Destino destino) throws SQLException {
-        return update("UPDATE DESTINO SET NOME_DESTINO = ?, REGIAO = ?, CAPACIDADE_VISITANTES = ? WHERE ID_DESTINO = ?",
-                destino.getNomeDestino(), destino.getRegiao(), destino.getCapacidadeVisitantes(), destino.getIdDestino()) > 0;
+        return callIfFound("atualizar_destino", destino.getIdDestino(), destino.getNomeDestino(),
+                destino.getRegiao(), destino.getCapacidadeVisitantes());
     }
 
-    /** O trigger deleteDestino apaga também as atrações, alojamentos e visitas do destino. */
+    /** Usa a procedure eliminar_destino; o trigger deleteDestino apaga também as atrações, alojamentos e visitas. */
     public boolean deleteDestino(String id) throws SQLException {
-        return update("DELETE FROM DESTINO WHERE ID_DESTINO = ?", id) > 0;
+        return callIfFound("eliminar_destino", id);
     }
 
     /**

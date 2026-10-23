@@ -38,7 +38,7 @@ data_analise: 2026-10-20
 2. [Objetivos e funcionalidades](#2.%20Objetivos%20e%20funcionalidades)
 3. [Resumo do estado atual](#3.%20Resumo%20do%20estado%20atual)
 4. [Conceitos essenciais antes de começar](#4.%20Conceitos%20essenciais%20antes%20de%20começar)
-5. [Arquitetura geral](#5.%20Arquitetura%20geral)
+5. [Arquitetura geral](#5.%20Arquitetura%20geral) — inclui o [Fluxo completo de execução](#5.5%20Fluxo%20completo%20de%20execução), em diagrama
 
 **Parte II — Estrutura do projeto**
 
@@ -149,7 +149,7 @@ O mapa completo do que funciona e do que está bloqueado está no [capítulo 20]
 | Testado em Windows | Não | `RELATORIO_TESTES.md` |
 
 > [!caution] Segurança
-> O ficheiro `turista_diagnosis_workflow.js` (raiz do projeto) contém credenciais da base de dados em texto simples. Os valores não são reproduzidos aqui. Ver a [tarefa crítica C1](#21.1%20Prioridade%20crítica).
+> O ficheiro `turista_diagnosis_workflow.js`, que tinha credenciais da base de dados em texto simples, foi apagado a 21-10-2026. Como já tinha sido versionado no Git, a palavra-passe continua no histórico: ver a [tarefa crítica C1](#21.1%20Prioridade%20crítica).
 
 ---
 
@@ -168,7 +168,7 @@ Esta secção explica, em linguagem simples, os conceitos usados ao longo do doc
 | **Handler** | Classe que recebe um pedido HTTP de uma rota, interpreta-o e devolve a resposta. Funciona como um "controlador". | Pacote `com.turismo.api.handler`: um handler por rota base. |
 | **Pool de ligações** | Conjunto de ligações à base de dados já abertas e reutilizadas, em vez de abrir uma nova a cada pedido. Analogia: uma frota de táxis à espera, em vez de chamar um táxi novo de cada vez. | HikariCP com no máximo 4 ligações (`DatabaseConnection`). |
 | **PreparedStatement** | Instrução SQL com marcadores `?` preenchidos separadamente. Evita injeção de SQL e trata os tipos corretamente. | Todas as consultas dos DAOs (`BaseDAO.prepare`). |
-| **Transação** | Grupo de operações que é gravado na totalidade (`COMMIT`) ou anulado na totalidade (`ROLLBACK`). | `BaseDAO.inTransaction`. |
+| **Transação** | Grupo de operações que é gravado na totalidade (`COMMIT`) ou anulado na totalidade (`ROLLBACK`). | Dentro de cada procedure PL/SQL (`COMMIT` no fim, `ROLLBACK` no erro). |
 | **PL/SQL** | Linguagem de programação do Oracle para escrever **funções**, **procedimentos** (*procedures*) e **triggers** dentro da base de dados. | Scripts `functions.sql`, `procedures.sql`, `Triggers.sql`. |
 | **Trigger** | Código PL/SQL que o Oracle executa automaticamente quando há um INSERT, UPDATE ou DELETE numa tabela. Se estiver **INVALID** (não compila), qualquer escrita nessa tabela falha com `ORA-04098`. | Causa principal das escritas bloqueadas. |
 | **View** | Consulta SQL guardada com um nome, que se lê como se fosse uma tabela. | 24 *views* em `views.sql`, usadas nos relatórios. |
@@ -219,18 +219,19 @@ flowchart LR
 
     subgraph ORA["Oracle 10g XE · máquina virtual"]
         direction TB
-        TB1[("15 tabelas<br/>9 sequências")]
-        PL["Funções · procedures<br/>triggers"]
-        VW["24 views<br/>(em falta)"]
+        TB1[("15 tabelas + 15 de auditoria<br/>9 sequências")]
+        PL["43 procedures · 13 funções<br/>33 triggers"]
+        VW[("39 views")]
     end
 
     CONF[/"config/turismo.properties<br/>+ TURISMO_DB_PASSWORD"/]
 
     U -->|"cliques e teclado"| MW
     AC -->|"HTTP/JSON<br/>localhost:8083/api"| SRV
-    DBC -->|"JDBC thin<br/>ojdbc11"| TB1
-    DBC --> PL
-    DBC -.->|"ORA-00942"| VW
+    DBC -->|"leituras: SELECT<br/>(JDBC thin, ojdbc11)"| VW
+    DBC -->|"escritas: call"| PL
+    VW --> TB1
+    PL --> TB1
     CONF --> CC
     CONF --> CFG
 
@@ -241,12 +242,11 @@ flowchart LR
     classDef ext fill:#ffffff,stroke:#5c6b7a,color:#1b2633
     class MW,PG,MS,TK,AC,CC fe
     class SRV,HD,UT,DAO,DBC,CFG be
-    class TB1,PL db
-    class VW warn
+    class TB1,PL,VW db
     class U,CONF ext
 ```
 
-**Leitura do diagrama.** O utilizador interage apenas com a janela (`MainWindow`). Cada ecrã pede dados através de uma `Task`, que corre em segundo plano e usa o `ApiClient` para enviar um pedido HTTP à API. No backend, o `TurismoApiServer` encaminha o pedido para o *handler* da rota, que valida os dados e chama o DAO correspondente. O DAO obtém uma ligação do *pool* (`DatabaseConnection`) e executa SQL ou PL/SQL no Oracle. A seta tracejada para as *views* indica que o código as consulta, mas que na base de dados atual elas não existem e a leitura falha com `ORA-00942`.
+**Leitura do diagrama.** O utilizador interage apenas com a janela (`MainWindow`). Cada ecrã pede dados através de uma `Task`, que corre em segundo plano e usa o `ApiClient` para enviar um pedido HTTP à API. No backend, o `TurismoApiServer` encaminha o pedido para o *handler* da rota, que valida os dados e chama o DAO correspondente. O DAO obtém uma ligação do *pool* (`DatabaseConnection`): as leituras são `SELECT` às *views* e as escritas são chamadas a procedures/funções PL/SQL, que alteram as tabelas. O Java nunca escreve diretamente nas tabelas. O processo completo está em [5.5](#5.5%20Fluxo%20completo%20de%20execução).
 
 ### 5.2 Componentes, em linguagem simples
 
@@ -271,7 +271,7 @@ flowchart LR
 3. **Cliente HTTP** — a `Task` chama o `ApiClient` fora da EDT. O `ApiClient` monta o URL a partir de `api.baseUrl` e envia JSON em UTF-8.
 4. **Servidor** — o `HttpServer` do JDK entrega o pedido a uma das 8 *threads* de trabalho, que chama `BaseHandler.handle`.
 5. **Handler** — decompõe o caminho em segmentos, escolhe a operação pelo método HTTP, lê e valida o corpo (`Json` + `Validator`).
-6. **DAO** — executa SQL (`PreparedStatement`) ou PL/SQL (`CallableStatement`) numa ligação do *pool*. Nas escritas compostas, usa uma transação.
+6. **DAO** — numa ligação do *pool*, lê das *views* (`SELECT` com `PreparedStatement`) ou escreve chamando procedures/funções (`CallableStatement`). Nunca executa `INSERT`/`UPDATE`/`DELETE` diretamente.
 7. **Oracle** — aplica restrições e *triggers*, executa funções e procedimentos e devolve linhas ou erros.
 8. **Resposta** — o DAO converte as linhas em *models*; o handler serializa-os com Gson; os erros são traduzidos por `DbErrors` e enviados como `{"error", "code", "fields"}`.
 9. **Apresentação** — o `ApiClient` devolve um `JsonArray`/`JsonObject` ou lança uma `ApiException`; a `Task` entrega o resultado na EDT, que atualiza a tabela, o detalhe, um *toast* ou o estado de erro.
@@ -284,12 +284,169 @@ flowchart LR
 | Quem recebe os dados? | No cliente, o `FormDialog` (lê os controlos). No servidor, o handler da rota (`Request.body(Class)`). |
 | Quem valida? | **Três níveis**: (1) `FormDialog.validate` + `ModuleSpec.crossValidation` no cliente; (2) `Validator` no handler; (3) restrições `CHECK`, chaves e *triggers* no Oracle. |
 | Quem executa a lógica? | Lógica simples: handlers e DAOs. Lógica de negócio: muitas vezes PL/SQL na base de dados (ex.: `Concluir_Pagamento` gera o recibo, `Regista_Visita` verifica a capacidade). |
-| Quem consulta ou altera a BD? | Exclusivamente os DAOs (e `ConstraintCatalog` para ler restrições). |
+| Quem consulta ou altera a BD? | Exclusivamente os DAOs (e `ConstraintCatalog` para ler restrições): leituras pelas *views*, escritas pelas procedures/funções. |
 | Quem transforma os resultados? | Os métodos `map(ResultSet)` de cada DAO (linha → *model*) e a classe `Json` (*model* → JSON). No cliente, `Format` e `RowsTableModel`. |
 | Quem devolve a resposta? | `BaseHandler` (`Request.ok`, `created`, `sendError`). |
 | O que acontece num erro? | `SQLException` → `DbErrors.translate` → `ApiException` com estado HTTP e código. O handler envia JSON de erro. O `ApiClient` converte-o em `ApiException` do frontend, que a interface mostra como estado de erro, faixa no formulário ou *toast*. Um erro **nunca** é apresentado como lista vazia. |
 | Existe camada de serviços? | **Não.** Não há um pacote `service`; os handlers chamam os DAOs diretamente. Parte da lógica de negócio está no PL/SQL. |
-| Existe autenticação? | **Não.** A API não tem autenticação nem autorização. Por omissão só escuta em `127.0.0.1` (`api.bindAddress`). |
+| Existe autenticação? | **Sim (desde 22-10-2026).** Contas com hash PBKDF2 em `Conta_Utilizador`, sessões com token em `Sessao_Utilizador`; o filtro `auth.AuthFilter` exige sessão em todos os endpoints de dados. Por omissão a API continua a escutar só em `127.0.0.1`. Ver [AUTENTICACAO_E_INTERFACE.md](AUTENTICACAO_E_INTERFACE.md). |
+
+### 5.5 Fluxo completo de execução
+
+Esta secção junta num só sítio **tudo o que acontece quando o programa corre**: o arranque, um pedido do utilizador a atravessar as três camadas (desktop → API → Oracle) e o regresso da resposta ao ecrã. Os pormenores de cada passo estão no [capítulo 13](#13.%20Funcionamento%20interno%20dos%20principais%20processos).
+
+**Regra de ouro do acesso a dados:** o Java **lê só das views** (`views.sql`) e **escreve só através de procedures e funções** (`procedures.sql`, `functions.sql`). Nenhum DAO executa `INSERT`, `UPDATE` ou `DELETE` diretamente numa tabela.
+
+#### 5.5.1 Visão geral, do arranque à resposta
+
+```mermaid
+flowchart TD
+    subgraph ARR["1 · Arranque"]
+        direction TB
+        S0(["./scripts/executar.sh"]) --> S1{"palavra-passe<br/>TURISMO_DB_PASSWORD?"}
+        S1 -->|"não"| SX["termina com erro"]
+        S1 -->|"sim"| S2["compila os .jar se faltarem<br/>(mvn package)"]
+        S2 --> S3["arranca turismo-api.jar<br/>porta 8083"]
+        S3 --> S4["SchemaDAO.status():<br/>objetos inválidos e views em falta"]
+        S4 --> S5["arranca turismo-desktop.jar<br/>MainWindow + painel inicial"]
+    end
+
+    subgraph FE["2 · Desktop (Swing)"]
+        direction TB
+        U(["Utilizador abre um módulo,<br/>grava um formulário ou carrega numa ação"])
+        U --> F1["CrudPage / FormDialog / DashboardPage"]
+        F1 --> F2{"validação no cliente<br/>(campos + crossValidation)"}
+        F2 -->|"inválido"| F3["erros junto aos campos<br/>(nenhum pedido é enviado)"]
+        F2 -->|"válido"| F4["Task em segundo plano<br/>ApiClient: pedido HTTP + JSON"]
+    end
+
+    subgraph API["3 · API (turismo-api.jar)"]
+        direction TB
+        A1["TurismoApiServer<br/>(HttpServer, 8 threads)"] --> A2["BaseHandler.handle<br/>→ handler da rota"]
+        A2 --> A3{"Validator<br/>(regras + domínios CHECK)"}
+        A3 -->|"inválido"| A4["422 VALIDACAO + fields"]
+        A3 -->|"válido"| A5{"leitura ou escrita?"}
+        A5 -->|"GET"| D1["DAO: query()<br/>SELECT * FROM V_LISTA_…"]
+        A5 -->|"POST / PUT / DELETE"| D2["DAO: call / callIfFound / callForNewId<br/>→ PlSqlOutput"]
+    end
+
+    subgraph ORA["4 · Oracle 10g XE"]
+        direction TB
+        V[("39 views<br/>v_lista_* e relatórios")]
+        P["43 procedures · 13 funções<br/>(ex.: registrar_destino, Concluir_Pagamento)"]
+        TG["33 triggers<br/>validar* · delete* (cascata) · auditoria*"]
+        T[("15 tabelas + 15 de auditoria<br/>9 sequências")]
+        P -->|"INSERT / UPDATE / DELETE<br/>NEXTVAL"| T
+        T --> TG
+        TG -->|"regra violada: RAISE_APPLICATION_ERROR"| P
+        P --> CM{"correu bem?"}
+        CM -->|"sim"| CM1["COMMIT + DBMS_OUTPUT<br/>... com sucesso!"]
+        CM -->|"não"| CM2["ROLLBACK + DBMS_OUTPUT<br/>Erro ao ...: ORA-xxxxx"]
+        V -->|"lê"| T
+    end
+
+    subgraph RES["5 · Resposta"]
+        direction TB
+        R1["PlSqlOutput.interpret:<br/>sucesso / 404 nao foi encontrado / erro"]
+        R2["map(ResultSet) → models"]
+        R3["DbErrors: ORA-xxxxx →<br/>HTTP + mensagem em português"]
+        R4["BaseHandler: 200 / 201 + JSON<br/>ou {error, code, fields}"]
+        R5["Task na EDT: tabela, detalhe, toast<br/>ou estado de erro"]
+        R1 --> R4
+        R2 --> R4
+        R3 --> R4
+        R4 --> R5
+    end
+
+    S5 --> U
+    F4 -->|"HTTP localhost:8083/api"| A1
+    D1 -->|"JDBC (pool HikariCP)"| V
+    D2 -->|"JDBC CallableStatement"| P
+    V -->|"linhas"| R2
+    CM1 --> R1
+    CM2 --> R1
+    R1 -.->|"erro"| R3
+    A4 --> R4
+    R5 -->|"recarrega a lista"| U
+
+    classDef ok fill:#dbe7f3,stroke:#1e3a5f,color:#10243d
+    classDef be fill:#e8edf2,stroke:#3b4a5a,color:#1b2633
+    classDef db fill:#f1f3f5,stroke:#5c6b7a,color:#1b2633
+    classDef err fill:#fbeae8,stroke:#b3261e,color:#3b0d0a
+    class S0,S2,S3,S4,S5,U,F1,F4,R5 ok
+    class A1,A2,D1,D2,R1,R2,R3,R4 be
+    class V,P,TG,T,CM1 db
+    class SX,F3,A4,CM2 err
+```
+
+**Como ler o diagrama.**
+
+1. **Arranque.** O `scripts/executar.sh` confirma a palavra-passe, compila os `.jar` se faltarem, arranca a API e espera que `/api/estado` responda. Ao arrancar, a API verifica a BD (`SchemaDAO`: objetos inválidos e views em falta). Só depois abre a aplicação desktop.
+2. **Desktop.** Cada ação do utilizador valida primeiro os campos no próprio formulário. Se estiver tudo certo, uma `Task` envia o pedido HTTP em segundo plano, para a janela não bloquear.
+3. **API.** O `BaseHandler` encaminha o pedido para o *handler* da rota, que valida outra vez (`Validator`). Uma leitura (`GET`) vai a uma view. Uma escrita (`POST`, `PUT` ou `DELETE`) chama uma procedure ou uma função.
+4. **Oracle.** A procedure faz a alteração na tabela. Os *triggers* validam as regras (horas, datas, capacidades), apagam em cascata os registos dependentes e registam a alteração nas tabelas de auditoria. No fim, a procedure faz `COMMIT` e escreve a mensagem de sucesso, ou faz `ROLLBACK` e escreve a mensagem de erro.
+5. **Resposta.** O `PlSqlOutput` lê a mensagem do `DBMS_OUTPUT` e decide o resultado. O `DbErrors` traduz um `ORA-xxxxx` para um código HTTP e uma mensagem em português. O ecrã mostra o resultado: tabela atualizada, *toast* ou estado de erro.
+
+#### 5.5.2 Exemplo de ponta a ponta: criar uma reserva com um alojamento
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Utilizador
+    participant F as FormDialog
+    participant AC as ApiClient
+    participant H as ReservaHandler
+    participant DAO as ReservaDAO
+    participant P as PlSqlOutput
+    participant DB as Oracle
+
+    U->>F: preenche turista, datas e alojamento AL-001
+    F->>F: valida campos (datas, obrigatórios)
+    F->>AC: Task: POST /reservas (JSON)
+    AC->>H: POST http://localhost:8083/api/reservas
+    H->>H: Validator: datas, estado, turista, alojamentos sem duplicados
+    H->>DAO: addReserva(reserva, AL-001)
+    DAO->>P: callProcedureForNewId(registrar_reserva)
+    P->>DB: registrar_reserva(TR-001, chegada, partida, PENDENTE)
+    DB->>DB: ID_reserva.NEXTVAL → RS-043
+    DB->>DB: INSERT Reserva → triggers validardatachegada e validardatapartida
+    DB->>DB: COMMIT
+    DB-->>P: DBMS_OUTPUT Reserva RS-043 gerada com sucesso!
+    P-->>DAO: RS-043 (lido da mensagem)
+    DAO->>P: callProcedure(associar_alojamento_reserva, RS-043, AL-001)
+    P->>DB: INSERT Reserva_Alojamento + COMMIT
+    alt associação falhou (ex.: alojamento inexistente)
+        DB-->>P: Erro ao associar alojamento: ORA-02291
+        DAO->>P: undo → eliminar_reserva(RS-043)
+        P->>DB: DELETE Reserva (trigger deleteReserva limpa os dependentes) + COMMIT
+        DAO-->>H: ApiException 422 REFERENCIA_INEXISTENTE
+        H-->>AC: 422 {error, code}
+        AC-->>F: ApiException
+        F-->>U: faixa de erro no formulário
+    else tudo certo
+        DB-->>P: Alojamento AL-001 associada a reserva RS-043 com sucesso!
+        DAO-->>H: RS-043
+        H->>DAO: getReservaById(RS-043)
+        DAO->>DB: SELECT * FROM V_LISTA_RESERVAS WHERE ID_RESERVA = ?
+        DB-->>DAO: linha com noites, total pago e completude
+        H-->>AC: 201 {message, data}
+        AC-->>F: JsonObject
+        F-->>U: fecha, toast de sucesso e lista recarregada
+    end
+```
+
+O código `RS-043` é ilustrativo. Como cada procedure faz o seu próprio `COMMIT`, a reserva é gravada antes de os alojamentos serem associados. Por isso, se uma associação falhar, o DAO elimina a reserva acabada de criar (`undo` → `eliminar_reserva`): no fim, ou fica tudo gravado ou não fica nada.
+
+#### 5.5.3 Que objeto da BD é usado em cada operação
+
+| Operação no ecrã | Pedido HTTP | Lê de (view) | Escreve com (procedure / função) |
+|---|---|---|---|
+| Abrir um módulo / pesquisar | `GET /api/<módulo>` | `v_lista_<módulo>` | — |
+| Criar | `POST /api/<módulo>` | `v_lista_<módulo>` (devolve o registo criado) | `registrar_*`, `definir_tipo_alojamento`, `inserir_preferencia`, `associar_*`, `Insere_Turista` |
+| Editar | `PUT /api/<módulo>/{id}` | `v_lista_<módulo>` | `atualizar_*`, `alterar_*`, `atualizar_pref_turista`, `Actualiza_Status_Reserva` |
+| Eliminar | `DELETE /api/<módulo>/{id}` | `v_lista_destinos` (aviso de cascata) | `eliminar_*`, `remover_*`, `Elimina_Turista` |
+| Ações especiais | `POST /reservas/{id}/cancelar`, `POST /pagamentos/{id}/concluir`, `PUT` numa associação reserva–alojamento ou operador–turista (avaliação) | — | `cancelar_reserva`, `Concluir_Pagamento`, `avaliar_alojamento`, `avaliar_operador` |
+| Relatórios e painel | `GET /api/relatorios`, `/api/dashboard` | as 24 views de relatório | — |
 
 
 ---
@@ -298,25 +455,20 @@ flowchart LR
 
 ## 6. Estrutura completa de diretórios
 
-A árvore abaixo reflete os ficheiros encontrados no disco. O código-fonte próprio aparece em detalhe. As pastas geradas pela compilação (`target/`, `out/`, `out_test/`, `backend_out_test/`) estão **resumidas**, porque contêm centenas de ficheiros `.class` e bibliotecas que não são editadas à mão.
+A árvore abaixo reflete os ficheiros do projeto depois da reorganização de 21-10-2026 (ver [§7.8](#7.8%20Reorganização%20do%20projeto%20(21-10-2026))). O código-fonte próprio aparece em detalhe. As pastas `target/`, geradas pelo Maven, estão **resumidas**.
 
 ```text
 Trabalho_turismo/
 ├── pom.xml                           projeto Maven "pai" (módulos backend e frontend)
-├── README.md                         README curto original (execução e configuração)
-├── IMPLEMENTATION_PLAN.md            auditoria, decisões e mapa de módulos
-├── PROGRESS_CHECKLIST.md             estado de cada módulo
-├── RELATORIO_TESTES.md               relatório da execução dos testes
-├── executar.sh                       arranque completo em macOS/Linux
-├── executar.bat                      arranque completo em Windows
+├── README.md                         README curto (execução e configuração)
 ├── .gitignore
 ├── .claude/settings.json             configuração local do assistente Claude Code
-├── turista_diagnosis_workflow.js     ⚠ script de diagnóstico antigo com credenciais
-├── TestDB.java · TestDB.class        utilitário antigo de teste de ligação (fora do Maven)
-├── TestTuristaDAO.java · .class      utilitário antigo de teste do TuristaDAO (fora do Maven)
-├── QueryTurista.class                classe compilada sem código-fonte correspondente
-├── src/
-│   └── Main.java                     "Hello, World" (modelo de projeto do IDE)
+├── scripts/                          comandos de execução
+│   ├── executar.sh                   arranque completo em macOS/Linux
+│   ├── executar.bat                  arranque completo em Windows
+│   ├── compilar.sh                   compila os dois módulos (sem testes)
+│   ├── api.sh                        arranca só a API (compila antes, ou --sem-compilar)
+│   └── desktop.sh                    abre só a aplicação desktop
 ├── config/
 │   ├── turismo.properties                    configuração (sem palavras-passe)
 │   └── turismo.local.properties.example      modelo para a palavra-passe local
@@ -326,9 +478,9 @@ Trabalho_turismo/
 │   ├── Index.sql                     10 índices
 │   ├── Inserts.sql                   dados de exemplo
 │   ├── functions.sql                 13 funções PL/SQL
-│   ├── procedures.sql                16 procedures PL/SQL
+│   ├── procedures.sql                43 procedures PL/SQL (16 do enunciado + 27 de manutenção), com índice
 │   ├── Triggers.sql                  33 triggers (auditoria, eliminação, validação)
-│   ├── views.sql                     24 views
+│   ├── views.sql                     39 views (24 de relatório + 15 de listagem)
 │   ├── Tabelas_de_Historico.sql      15 tabelas de auditoria
 │   ├── main.sql                      corre todos os scripts pela ordem certa
 │   ├── apagarAtualizar.sql           apaga todos os objetos do projeto e corre main.sql
@@ -337,6 +489,9 @@ Trabalho_turismo/
 │   └── relatorio_calculo2.txt        saída do estudo de espaço
 ├── documents/
 │   ├── README.md                     ← este documento
+│   ├── IMPLEMENTATION_PLAN.md        auditoria inicial, decisões e mapa de módulos (20-10-2026)
+│   ├── PROGRESS_CHECKLIST.md         estado de cada módulo (20-10-2026)
+│   ├── RELATORIO_TESTES.md           relatório da execução dos testes (20-10-2026)
 │   ├── Grupo 1 - Gestao de Turismo.pdf
 │   ├── BD_TP_Grupo1_2026_Fase3.pdf
 │   ├── TP_ORIENTAÇÃO_2026 (1).pdf
@@ -346,14 +501,11 @@ Trabalho_turismo/
 ├── backend/
 │   ├── pom.xml                       módulo turismo-api
 │   ├── README.md                     referência curta da API
-│   ├── compile.sh · run.sh · run_turismo.sh
 │   ├── server.log                    último registo da API (gerado por executar.sh)
-│   ├── lib/ojdbc11.jar               driver Oracle do processo antigo com javac
 │   ├── src/
-│   │   ├── main.java                 classe vazia "main" (resto antigo, fora do Maven)
 │   │   ├── main/
 │   │   │   ├── java/com/turismo/api/
-│   │   │   │   ├── TurismoApiServer.java
+│   │   │   │   ├── TurismoApiServer.java   ← main da API
 │   │   │   │   ├── util/      AppConfig, ApiException, ConnectionProvider, ConstraintCatalog,
 │   │   │   │   │              DatabaseConnection, DbErrors, Json, Validator
 │   │   │   │   ├── dao/       BaseDAO, IdGenerator, PlSqlOutput, SchemaDAO, RelatorioDAO,
@@ -365,44 +517,36 @@ Trabalho_turismo/
 │   │   └── test/java/com/turismo/api/
 │   │       ├── dao/PlSqlOutputTest.java
 │   │       ├── handler/TuristaHandlerHttpTest.java
-│   │       ├── integration/OracleIntegrationTest.java · RollbackConnection.java
+│   │       ├── integration/OracleIntegrationTest.java
 │   │       └── util/AppConfigTest · ConstraintCatalogTest · DbErrorsTest · JsonTest · ValidatorTest
-│   ├── target/                       [gerado] classes, turismo-api.jar, relatórios de testes
-│   ├── out/                          [gerado, antigo] .class do processo javac
-│   └── out_test/                     [gerado, antigo] DestinoDAOTest.class
-├── backend_out_test/                 [gerado, antigo] DestinoDAOTest.class
-├── frontend/
-│   ├── pom.xml                       módulo turismo-desktop
-│   ├── compile.sh · run.sh
-│   ├── src/
-│   │   ├── main/
-│   │   │   ├── java/com/turismo/frontend/
-│   │   │   │   ├── MainApplication.java · MainWindow.java
-│   │   │   │   ├── api/       ApiClient, ApiException, ClientConfig
-│   │   │   │   ├── modules/   ModuleSpec, ColumnSpec, FieldSpec, ActionSpec, ReportSpec, Page,
-│   │   │   │   │              Modules, CrudPage, FormDialog, ReportPanel, RowsTableModel,
-│   │   │   │   │              CellRenderer, BadgePainter, Lookups, Format
-│   │   │   │   ├── pages/     DashboardPage
-│   │   │   │   └── ui/
-│   │   │   │       ├── async/       Task
-│   │   │   │       ├── theme/       Palette, Theme, Icons
-│   │   │   │       └── components/  Badge, BarChart, Card, Scroll, SearchField, Sidebar,
-│   │   │   │                        Spinner, StateView, StatusBar, Surface, Toast, UI, WrapText
-│   │   │   └── resources/fonts/      IBM Plex Sans (4 pesos) + OFL.txt
-│   │   └── test/java/com/turismo/frontend/
-│   │       ├── MainWindowUiTest · LiveApplicationE2ETest · StubApi · SwingTestSupport
-│   │       ├── api/ApiClientTest
-│   │       └── modules/ModulesTest
-│   ├── target/                       [gerado] classes, turismo-desktop.jar, screenshots/, relatórios
-│   └── out/                          [gerado, antigo] .class dos protótipos removidos
-└── demo/                             projeto Maven isolado "Hello world" (sem relação com a app)
-    ├── pom.xml
-    ├── src/main/java/com/example/Main.java
-    └── target/                       [gerado]
+│   └── target/                       [gerado] classes, turismo-api.jar, relatórios de testes
+└── frontend/
+    ├── pom.xml                       módulo turismo-desktop
+    ├── src/
+    │   ├── main/
+    │   │   ├── java/com/turismo/frontend/
+    │   │   │   ├── MainApplication.java    ← main da aplicação desktop
+    │   │   │   ├── MainWindow.java
+    │   │   │   ├── api/       ApiClient, ApiException, ClientConfig
+    │   │   │   ├── modules/   ModuleSpec, ColumnSpec, FieldSpec, ActionSpec, ReportSpec, Page,
+    │   │   │   │              Modules, CrudPage, FormDialog, ReportPanel, RowsTableModel,
+    │   │   │   │              CellRenderer, BadgePainter, Lookups, Format
+    │   │   │   ├── pages/     DashboardPage
+    │   │   │   └── ui/
+    │   │   │       ├── async/       Task
+    │   │   │       ├── theme/       Palette, Theme, Icons
+    │   │   │       └── components/  Badge, BarChart, Card, Scroll, SearchField, Sidebar,
+    │   │   │                        Spinner, StateView, StatusBar, Surface, Toast, UI, WrapText
+    │   │   └── resources/fonts/      IBM Plex Sans (4 pesos) + OFL.txt
+    │   └── test/java/com/turismo/frontend/
+    │       ├── MainWindowUiTest · LiveApplicationE2ETest · StubApi · SwingTestSupport
+    │       ├── api/ApiClientTest
+    │       └── modules/ModulesTest
+    └── target/                       [gerado] classes, turismo-desktop.jar, screenshots/, relatórios
 ```
 
-> [!note] Pastas resumidas
-> `backend/target`, `frontend/target`, `demo/target`, `backend/out`, `backend/out_test`, `frontend/out` e `backend_out_test` contêm apenas resultados de compilação. As pastas `out*` são do processo antigo com `javac` e contêm 58 ficheiros `.class` desatualizados, incluindo classes de protótipos que já não existem no código-fonte (ex.: `DashboardPanel`, `DestinoPanel`). O `.gitignore` exclui `target/`, `out/` e `*.class`.
+> [!note] Só dois programas `main`
+> O projeto tem apenas dois pontos de entrada: `TurismoApiServer` (a API) e `MainApplication` (a aplicação desktop). As pastas `target/` contêm apenas resultados de compilação e são excluídas do Git (`.gitignore`), tal como `*.class`.
 
 ---
 
@@ -415,17 +559,10 @@ Legenda da coluna **Natureza**: **Código** (código-fonte próprio) · **Config
 | Caminho | Natureza | Finalidade | Estado |
 |---|---|---|---|
 | `pom.xml` | Config | Projeto Maven **agregador** (`packaging pom`). Declara os módulos `backend` e `frontend`, fixa Java 21, UTF-8 e as versões de todas as dependências (`dependencyManagement`) e *plugins* (`pluginManagement`). | Concluído |
-| `README.md` | Documentação | README original, curto: requisitos, configuração, execução, estado da BD e atalhos de teclado. | Concluído |
-| `IMPLEMENTATION_PLAN.md` | Documentação | Auditoria do projeto antes da reestruturação, decisões tomadas e mapa de cada módulo (que função/procedure/SQL é usada em cada operação). | Concluído; ver discrepância no [§19](#19.%20Problemas%20conhecidos) |
-| `PROGRESS_CHECKLIST.md` | Documentação | Lista de verificação do estado por módulo (✅/🟡/⛔). | Concluído |
-| `RELATORIO_TESTES.md` | Documentação | Relatório da execução de testes de 20-10-2026 (91 testes). | Concluído |
-| `executar.sh` / `executar.bat` | Código (script) | Arranque completo: compilam se faltar algum `.jar`, arrancam a API se não estiver a correr e abrem a aplicação. Detalhes no [§17](#17.%20Compilação%20e%20execução). | `.sh` testado; `.bat` não testado |
+| `README.md` | Documentação | README curto: requisitos, configuração, execução, estado da BD e atalhos de teclado. | Concluído |
+| `scripts/` | Código (scripts) | Os comandos de execução (ver [§7.7](#7.7%20scripts/)). | Concluído |
 | `.gitignore` | Config | Exclui `target/`, `out/`, `*.class`, `config/turismo.local.properties`, ficheiros de IDE, `.DS_Store` e `backend/server.log`. | Concluído |
 | `.claude/settings.json` | Config | Lista de *plugins* ativos do Claude Code. Não afeta a aplicação. | Não aplicável |
-| `turista_diagnosis_workflow.js` | Resto antigo | Script de um fluxo de diagnóstico ("porque é que `/api/turistas` devolve lista vazia"). **Contém credenciais em texto simples.** Não é usado pela aplicação. | Deve ser removido (ver [C1](#21.1%20Prioridade%20crítica)) |
-| `TestDB.java`, `TestTuristaDAO.java` | Resto antigo | Programas `main` de diagnóstico: o primeiro abre uma ligação e lista as colunas de `TURISTA`; o segundo chama `TuristaDAO.getAllTuristas()`. Estão fora das pastas do Maven, por isso não são compilados nem executados pelo `mvn`. Continuam compatíveis com as assinaturas atuais. | Não utilizado |
-| `*.class` na raiz | Gerado (antigo) | `TestDB.class`, `TestTuristaDAO.class` e `QueryTurista.class` (este último **sem código-fonte**). | Não utilizado |
-| `src/Main.java` | Resto antigo | Classe "Hello, World" criada pelo modelo de projeto do IDE. | Não utilizado |
 
 ### 7.2 config/
 
@@ -433,7 +570,7 @@ Legenda da coluna **Natureza**: **Código** (código-fonte próprio) · **Config
 
 | Ficheiro | Conteúdo | Quem o lê |
 |---|---|---|
-| `turismo.properties` | Ligação Oracle (`db.host`, `db.port`, `db.service`/`db.sid`, `db.user`, *timeouts*, `db.poolSize`), porta da API (`api.port`) e configuração do cliente (`api.baseUrl`, `api.timeoutSeconds`). **Não contém palavra-passe** (há um teste que o garante: `AppConfigTest.ficheiroDeConfiguracaoDoProjetoNaoTemPalavraPasse`). | `AppConfig` (backend), `ClientConfig` (frontend), `executar.sh/.bat` e `run_turismo.sh` (só `api.port`) |
+| `turismo.properties` | Ligação Oracle (`db.host`, `db.port`, `db.service`/`db.sid`, `db.user`, *timeouts*, `db.poolSize`), porta da API (`api.port`) e configuração do cliente (`api.baseUrl`, `api.timeoutSeconds`). **Não contém palavra-passe** (há um teste que o garante: `AppConfigTest.ficheiroDeConfiguracaoDoProjetoNaoTemPalavraPasse`). | `AppConfig` (backend), `ClientConfig` (frontend), `scripts/executar.sh/.bat` e `scripts/api.sh` (só `api.port`) |
 | `turismo.local.properties.example` | Modelo com a chave `db.password=` vazia. Deve ser copiado para `turismo.local.properties` (excluído do Git) se não se quiser usar a variável de ambiente. | Ninguém (é só um modelo) |
 
 **Relações:** o Maven passa o caminho desta pasta aos testes e ao `exec:java` através da propriedade `turismo.config.dir`. Os `.jar` encontram-na procurando `./config` e `../config` a partir da pasta atual.
@@ -450,15 +587,15 @@ Legenda da coluna **Natureza**: **Código** (código-fonte próprio) · **Config
 | Ficheiro | Conteúdo | Relação com o Java |
 |---|---|---|
 | `tabelas.sql` | `DROP` + `CREATE` das 15 tabelas, com chaves primárias e estrangeiras e restrições `CHECK`. | Os *models*, os DAOs e o `Validator` seguem estas definições. |
-| `Sequences.sql` | 9 sequências (`ID_destino`, `ID_atracao`, `ID_turista`, `ID_reserva`, `ID_operador`, `ID_alojamento`, `ID_transporte`, `ID_pagamento`, `ID_recibo`), com `MAXVALUE 999`. | `IdGenerator` usa as 8 primeiras; `ID_recibo` é usada pela função `Concluir_Pagamento`. |
+| `Sequences.sql` | 9 sequências (`ID_destino`, `ID_atracao`, `ID_turista`, `ID_reserva`, `ID_operador`, `ID_alojamento`, `ID_transporte`, `ID_pagamento`, `ID_recibo`), com `MAXVALUE 999`. As 8 primeiras são usadas pelas procedures `registrar_*` e pela função `Insere_Turista`; `ID_recibo` é usada pela função `Concluir_Pagamento`. |
 | `Index.sql` | 10 índices sobre chaves estrangeiras. | Indireta (desempenho). |
-| `Inserts.sql` | Dados de exemplo (destinos, atrações, turistas…), com códigos gerados por sequência. | Indireta. O formato do código (prefixo `DT-` seguido de `LPAD(seq.NEXTVAL, 3, '0')`) foi copiado por `IdGenerator`. |
+| `Inserts.sql` | Dados de exemplo (destinos, atrações, turistas…), com códigos gerados por sequência. Indireta. O formato do código (prefixo `DT-` seguido de `LPAD(seq.NEXTVAL, 3, '0')`) é o mesmo das procedures `registrar_*`. |
 | `functions.sql` | 13 funções (ex.: `Insere_Turista`, `Regista_Visita`, `Concluir_Pagamento`). | 11 são chamadas pelos DAOs (ver [§14.7](#14.7%20Funções%20e%20procedures%20usadas%20pelo%20Java)). |
-| `procedures.sql` | 16 procedures (ex.: `associar_operador_turista`, `cancelar_reserva`). | 9 são chamadas através de `PlSqlOutput`. |
+| `procedures.sql` | Único script de procedures (43), com um índice no topo a explicar cada uma. Parte 1: as 16 do enunciado (A a Q). Parte 2: 27 de manutenção (`registrar_*`, `atualizar_*`, `eliminar_*`, `remover_*`). | Todas são chamadas através de `PlSqlOutput`: a aplicação nunca escreve diretamente nas tabelas. |
 | `Triggers.sql` | 15 *triggers* de auditoria, 6 de eliminação em cascata e 12 de validação. | Afetam diretamente as escritas da API. |
-| `views.sql` | 24 *views* de consulta e verificação. | `RelatorioDAO.VIEWS` lista exatamente estas 24. |
-| `Tabelas_de_Historico.sql` | 15 tabelas `auditoria_*`. | Nenhuma (segundo a auditoria documentada, não existem na BD). |
-| `main.sql`, `apagarAtualizar.sql`, `conceder_privilegios.sql` | Correm os scripts corrigidos pela ordem certa; apagam e recriam tudo; dão o privilégio CREATE VIEW. O antigo `correcoes.sql` foi removido: as correções passaram para `Triggers.sql` e `procedures.sql` (marcadas com `NOTA`). | Correções aplicadas em 21-10-2026 (0 objetos inválidos); as views esperam pelo `GRANT CREATE VIEW` de `conceder_privilegios.sql`. |
+| `views.sql` | 39 *views*: 24 de relatório e verificação + 15 de listagem (`v_lista_*`). | Todas as leituras do Java vêm destas *views*; `RelatorioDAO.VIEWS` lista as 24 de relatório. |
+| `Tabelas_de_Historico.sql` | 15 tabelas `auditoria_*`. | Indireta: preenchidas pelos *triggers* de auditoria quando se altera ou elimina um registo. |
+| `main.sql`, `apagarAtualizar.sql`, `conceder_privilegios.sql` | Correm os scripts corrigidos pela ordem certa; apagam e recriam tudo; dão o privilégio CREATE VIEW. O antigo `correcoes.sql` foi removido: as correções passaram para `Triggers.sql` e `procedures.sql` (marcadas com `NOTA`). | Correções aplicadas em 21-10-2026: 0 objetos inválidos e as 39 *views* criadas. |
 | `calculoEspacoPorAtributo.sql` | Bloco PL/SQL que estima o espaço em disco por atributo e por tabela, para uma projeção de linhas. | Nenhuma (estudo académico). |
 | `relatorio_calculo2.txt` | Saída do estudo anterior (SQL*Plus). | Nenhuma. |
 
@@ -477,6 +614,9 @@ Legenda da coluna **Natureza**: **Código** (código-fonte próprio) · **Config
 | `class_diagram.html` | Página HTML "Diagrama de Classes — Sistema de Gestão de Turismo" |
 | `project_plan.html` | Página HTML "Plano do Projeto — Trabalho de Turismo" |
 | `README.md` | Este manual técnico |
+| `IMPLEMENTATION_PLAN.md` | Auditoria do projeto antes da reestruturação (20-10-2026), decisões tomadas e mapa de cada módulo. Documento histórico: o acesso a dados mudou depois (leituras por *views*, escritas por procedures). |
+| `PROGRESS_CHECKLIST.md` | Lista de verificação do estado por módulo (✅/🟡/⛔), de 20-10-2026. |
+| `RELATORIO_TESTES.md` | Relatório da execução de testes de 20-10-2026. |
 
 > [!note] Não verificado
 > O conteúdo dos PDF, do `.drawio` e das páginas HTML não foi analisado em detalhe para este documento. As páginas HTML podem refletir uma fase anterior do projeto, por isso não substituem o diagrama de classes do [§12](#12.%20Relações%20e%20dependências%20entre%20classes).
@@ -489,19 +629,13 @@ Legenda da coluna **Natureza**: **Código** (código-fonte próprio) · **Config
 |---|---|---|
 | `pom.xml` | Config | Dependências `ojdbc11`, `gson`, `HikariCP`, `slf4j-simple` e `junit-jupiter` (testes). O `maven-shade-plugin` cria um `.jar` executável com tudo incluído (`mainClass = com.turismo.api.TurismoApiServer`). O `surefire` e o `exec` recebem `turismo.config.dir`. |
 | `README.md` | Documentação | Referência rápida da API (convenções, códigos HTTP, rotas). |
-| `compile.sh` | Script | Vai para a raiz e corre `mvn -q -DskipTests package` (compila **os dois** módulos). Igual a `frontend/compile.sh`. |
-| `run.sh` | Script | Vai para a raiz e corre `java -jar backend/target/turismo-api.jar`. |
-| `run_turismo.sh` | Script | Verifica `TURISMO_DB_PASSWORD`, termina um servidor anterior na porta, compila só o backend (`-pl backend -am`) e arranca a API. |
-| `server.log` | Gerado | Saída da última API arrancada por `executar.sh`. É a melhor evidência do estado da BD (16 objetos inválidos, 24 *views* em falta). Excluído do Git. |
-| `lib/ojdbc11.jar` | Biblioteca (antiga) | Driver Oracle usado no tempo da compilação com `javac`. O Maven **não** o usa (descarrega o mesmo driver do Maven Central). |
+| `server.log` | Gerado | Saída da última API arrancada por `scripts/executar.sh`. Excluído do Git. |
 | `src/main/java/com/turismo/api/` | Código | Código da API, organizado em `util`, `dao`, `handler`, `model` (ver [§8](#8.%20Organização%20por%20camadas%20e%20pacotes)). |
 | `src/main/resources/simplelogger.properties` | Recurso | Configura o SLF4J Simple: só avisos e erros (usado pelo HikariCP), com hora `HH:mm:ss`. |
 | `src/test/java/com/turismo/api/` | Código (testes) | Testes unitários, HTTP e de integração com o Oracle. |
-| `src/main.java` | Resto antigo | Classe vazia `public class main {}`, fora das pastas do Maven. |
 | `target/` | Gerado | `classes/`, `test-classes/`, `turismo-api.jar` (executável), `original-turismo-api.jar`, `surefire-reports/`. |
-| `out/`, `out_test/` | Gerado (antigo) | `.class` da compilação antiga com `javac`. Desatualizados. |
 
-**Importância:** essencial — sem a API a aplicação desktop não mostra dados. **Estado:** implementado e testado (91 testes no total do projeto, 63 no backend).
+**Importância:** essencial — sem a API a aplicação desktop não mostra dados. **Estado:** implementado e testado (89 testes no total do projeto a 21-10-2026: 61 no backend, 28 no frontend).
 
 ### 7.6 frontend/
 
@@ -510,26 +644,66 @@ Legenda da coluna **Natureza**: **Código** (código-fonte próprio) · **Config
 | Subpasta / ficheiro | Natureza | Finalidade |
 |---|---|---|
 | `pom.xml` | Config | Dependências `gson`, `flatlaf`, `ikonli-swing`, `ikonli-materialdesign2-pack` e `junit-jupiter`. O *shade* cria `turismo-desktop.jar` com `mainClass = com.turismo.frontend.MainApplication` e `Enable-Native-Access: ALL-UNNAMED` (evita um aviso do FlatLaf em Java 22+). |
-| `compile.sh` / `run.sh` | Script | `compile.sh` compila os dois módulos; `run.sh` abre `frontend/target/turismo-desktop.jar` (a API tem de estar a correr). |
 | `src/main/java/com/turismo/frontend/` | Código | Janela, cliente HTTP, módulos, páginas e componentes visuais. |
 | `src/main/resources/fonts/` | Recurso | Fonte IBM Plex Sans (Regular, Medium, SemiBold, Bold) e a licença `OFL.txt`. Incluída no `.jar` para o aspeto ser igual em qualquer sistema. |
 | `src/test/java/com/turismo/frontend/` | Código (testes) | Testes do cliente HTTP, dos módulos, da janela real com API falsa e ponta a ponta. |
 | `target/screenshots/` | Gerado | 21 capturas PNG produzidas pelos testes de interface (painel, cada módulo, tema escuro, formulários). |
 | `target/` (resto) | Gerado | `turismo-desktop.jar`, classes, relatórios Surefire. |
-| `out/` | Gerado (antigo) | `.class` dos protótipos removidos (`DashboardPanel`, `BasePanel`, `DestinoPanel`, `ReservaPanel`, `TuristaPanel`). |
 
 **Importância:** essencial. **Estado:** implementado; testado em macOS; não testado em Windows.
 
 > [!tip] Ver a interface sem executar
 > As capturas em `frontend/target/screenshots/` mostram cada ecrã (por exemplo `00-painel.png`, `01-destinos.png`, `30-formulario-destino.png`). Como estão em `target/`, desaparecem com `mvn clean` e são recriadas pelos testes de interface.
 
-### 7.7 demo/
+### 7.7 scripts/
 
-**Finalidade:** projeto Maven independente (`com.example:demo`, Java 17) com uma classe `Main` que escreve "Hello world!". **Não é módulo** do `pom.xml` raiz nem é usado pela aplicação. Provavelmente foi criado por um IDE. **Estado:** resto antigo, não utilizado.
+**Finalidade:** juntar num só sítio os comandos de execução. Todos os scripts mudam primeiro para a raiz do projeto, por isso podem ser chamados de qualquer pasta (ex.: `./scripts/executar.sh`).
 
-### 7.8 backend_out_test/
+| Script | O que faz |
+|---|---|
+| `executar.sh` | Uso normal em macOS/Linux: verifica a palavra-passe, compila se faltar algum `.jar`, arranca a API se não estiver a correr (log em `backend/server.log`), abre a aplicação e, ao fechar, termina a API que arrancou. |
+| `executar.bat` | O mesmo em Windows (a API abre numa janela minimizada "Turismo API"). **Não testado.** |
+| `compilar.sh` | `mvn -q -DskipTests package`: cria `backend/target/turismo-api.jar` e `frontend/target/turismo-desktop.jar`. |
+| `api.sh` | Arranca só a API: exige `TURISMO_DB_PASSWORD`, para um servidor anterior na mesma porta, compila o backend e arranca-o. Com `--sem-compilar` usa o `.jar` já compilado. |
+| `desktop.sh` | Abre só a aplicação desktop (a API tem de estar a correr). |
 
-**Finalidade:** contém apenas `com/turismo/api/dao/DestinoDAOTest.class`, compilado do antigo teste `DestinoDAOTest` (removido do código-fonte por não compilar). **Estado:** resto antigo, não utilizado.
+**Estado:** os quatro scripts `.sh` foram testados em macOS a 21-10-2026.
+
+### 7.8 Reorganização do projeto (21-10-2026)
+
+A pedido do grupo, o projeto foi limpo de classes `main` e pastas que não pertenciam à aplicação, e os comandos de execução foram agrupados.
+
+**Apagado (não era usado pela aplicação):**
+
+| O quê | Porquê |
+|---|---|
+| `src/Main.java` | "Hello, World" criado pelo modelo de projeto do IDE. |
+| `demo/` (com `demo/src/main/java/com/example/Main.java` e `pom.xml`) | Outro "Hello world!", num projeto Maven que não era módulo do `pom.xml` raiz. |
+| `TestDB.java`, `TestTuristaDAO.java` | Programas `main` de diagnóstico antigos, fora do Maven (nunca compilados pelo `mvn`). |
+| `backend/src/main.java` | Classe vazia `public class main {}`, fora das pastas do Maven. |
+| `*.class` na raiz (`TestDB`, `TestTuristaDAO`, `QueryTurista`) | Restos de compilação; o `QueryTurista.class` nem tinha código-fonte. |
+| `backend/out/`, `backend/out_test/`, `backend_out_test/`, `frontend/out/`, `frontend_out/` | `.class` desatualizados da compilação antiga com `javac`. |
+| `backend/lib/ojdbc11.jar` | Driver Oracle do tempo do `javac`; o Maven descarrega o mesmo driver do Maven Central. |
+| `turista_diagnosis_workflow.js` | Script de diagnóstico antigo que tinha a palavra-passe da BD em texto simples. |
+
+**Movido:**
+
+| Antes | Depois |
+|---|---|
+| `executar.sh`, `executar.bat` (raiz) | `scripts/executar.sh`, `scripts/executar.bat` |
+| `backend/compile.sh` e `frontend/compile.sh` (iguais) | `scripts/compilar.sh` (um só) |
+| `backend/run_turismo.sh` e `backend/run.sh` | `scripts/api.sh` (com a opção `--sem-compilar`) |
+| `frontend/run.sh` | `scripts/desktop.sh` |
+| `IMPLEMENTATION_PLAN.md`, `PROGRESS_CHECKLIST.md`, `RELATORIO_TESTES.md` (raiz) | `documents/` |
+
+**Resultado:** a raiz fica só com `pom.xml`, `README.md`, `.gitignore` e as pastas `backend/`, `frontend/`, `config/`, `database/`, `documents/` e `scripts/`. Restam apenas os dois `main` da aplicação.
+
+**Verificação depois da reorganização:**
+
+- `mvn clean package`: compilação sem erros e 89 testes a passar (backend 61, 1 *skipped*; frontend 28).
+- API nova arrancada e testada por HTTP: `/api/estado` (0 objetos inválidos, 39 *views*), listagem, criar, editar, validação, aviso de cascata, eliminar e 404 ao eliminar de novo.
+- `scripts/compilar.sh`, `scripts/api.sh` (com e sem palavra-passe) e `scripts/executar.sh` (com a API já a correr e com a API parada, que ele arranca e termina ao fechar a janela) testados em macOS.
+- O teste `MainWindowUiTest.temaEscuroETemaClaroAlternam` falhava quando o tema escuro estava guardado nas preferências do computador. Foi corrigido para verificar a troca a partir do tema inicial, seja ele qual for.
 
 ---
 
@@ -590,7 +764,7 @@ As setas indicam "usa" (dependência de compilação). Os dois módulos **não p
 |---|---|---|---|
 | `com.turismo.api` | `TurismoApiServer` | Ponto de entrada da API: cria o `HttpServer`, regista as rotas, mostra o estado da BD no arranque | `handler`, `dao.SchemaDAO`, `util` |
 | `…api.handler` | `BaseHandler`, `EstadoHandler`, `DominioHandler`, `DashboardHandler`, `RelatorioHandler` + 15 handlers de entidade | Camada HTTP: rotas, métodos, validação, códigos de resposta | `dao`, `model`, `util`, `com.sun.net.httpserver` |
-| `…api.dao` | `BaseDAO`, `IdGenerator`, `PlSqlOutput`, `SchemaDAO`, `RelatorioDAO`, `DashboardDAO` + 15 DAOs de entidade | Acesso a dados: SQL, PL/SQL, transações, conversão para *models* | `model`, `util`, `java.sql` |
+| `…api.dao` | `BaseDAO`, `IdGenerator`, `PlSqlOutput`, `SchemaDAO`, `RelatorioDAO`, `DashboardDAO` + 15 DAOs de entidade | Acesso a dados: leitura por views, escrita por procedures/funções PL/SQL, conversão para *models* | `model`, `util`, `java.sql` |
 | `…api.model` | 15 classes | Representação Java das linhas das tabelas (POJO) | `java.math`, `java.time` |
 | `…api.util` | `AppConfig`, `DatabaseConnection`, `ConnectionProvider`, `ApiException`, `DbErrors`, `ConstraintCatalog`, `Validator`, `Json` | Configuração, *pool* de ligações, erros, validação, JSON | HikariCP, Gson |
 
@@ -610,10 +784,10 @@ As setas indicam "usa" (dependência de compilação). Os dois módulos **não p
 
 | Padrão | Onde | Para quê |
 |---|---|---|
-| **Template Method** | `BaseHandler.handle` chama o método abstrato `route`; `BaseDAO` fornece `query`/`update`/`inTransaction` às subclasses | Centralizar o tratamento de erros HTTP e o JDBC repetitivo |
+| **Template Method** | `BaseHandler.handle` chama o método abstrato `route`; `BaseDAO` fornece `query`/`call`/`callIfFound`/`callForNewId` às subclasses | Centralizar o tratamento de erros HTTP e o JDBC repetitivo |
 | **DAO** | Pacote `dao` | Isolar o SQL |
 | **Singleton preguiçoso** (*lazy*, com *double-checked locking*) | `AppConfig.get()`, `DatabaseConnection.pool()` | Ler a configuração e criar o *pool* uma só vez, no primeiro uso |
-| **Interface funcional / injeção de dependências manual** | `ConnectionProvider`, construtores dos DAOs e handlers | Permitir aos testes substituir a origem das ligações (ex.: `RollbackConnection`) ou o DAO (ex.: `FakeDAO`) |
+| **Interface funcional / injeção de dependências manual** | `ConnectionProvider`, construtores dos DAOs e handlers | Permitir aos testes substituir a origem das ligações ou o DAO (ex.: `FakeDAO`) |
 | **Builder fluente** | `ModuleSpec`, `FieldSpec`, `Validator` | Descrever módulos e validações de forma legível |
 | **Especificação declarativa + componente genérico** | `Modules` + `CrudPage` + `FormDialog` | Um único ecrã serve 15 tabelas |
 | **Fábrica estática** | `ApiException.notFound/badRequest/…`, `FieldSpec.text/integer/…`, `UI.primary/…` | Criar objetos padronizados |
@@ -784,7 +958,7 @@ c.jdbcUrl();   // "jdbc:oracle:thin:@//10.0.0.5:1522/XE"
 
 **Dependências:** HikariCP, driver Oracle, `AppConfig`, `DbErrors`. **Relações:** é a implementação de `ConnectionProvider.DEFAULT`; usada indiretamente por todos os DAOs e diretamente por `ConstraintCatalog.describe` e pelos testes de integração.
 
-**Exemplo** (do utilitário antigo `TestDB.java`):
+**Exemplo** (uso direto, como nos testes de integração):
 
 ```java
 try (Connection conn = DatabaseConnection.getConnection()) {
@@ -804,7 +978,7 @@ try (Connection conn = DatabaseConnection.getConnection()) {
 | **Objetivo** | Abstrair "de onde vem uma ligação", para que os testes possam injetar outra fonte. |
 
 **Membros:** `Connection get() throws SQLException`; constante `DEFAULT = DatabaseConnection::getConnection`.
-**Relações:** recebida pelos construtores de todos os DAOs (`BaseDAO`) e handlers (`BaseHandler`). Os testes de integração passam `RollbackConnection.provider()`, que devolve sempre a mesma ligação transacional; o `TuristaHandlerHttpTest` passa uma *lambda* que lança exceção.
+**Relações:** recebida pelos construtores de todos os DAOs (`BaseDAO`) e handlers (`BaseHandler`). O `TuristaHandlerHttpTest` passa uma *lambda* que lança exceção.
 **Estado:** implementado.
 
 #### ApiException do backend
@@ -957,7 +1131,7 @@ new Validator()
 | **Objetivo** | Reunir o código JDBC comum a todos os DAOs. |
 | **Responsabilidade** | Executar consultas e atualizações com `PreparedStatement`, gerir transações, chamar funções PL/SQL e converter tipos. **Propagar sempre os erros**, nunca os converter em listas vazias. |
 
-**Tipos internos:** `RowMapper<T>` (converte a linha atual de um `ResultSet` num objeto) e `TxWork<T>` (trabalho a executar numa transação, recebe a `Connection`).
+**Tipos internos:** `RowMapper<T>` (converte a linha atual de um `ResultSet` num objeto).
 
 **Atributo:** `protected final ConnectionProvider connections`.
 **Construtores:** `BaseDAO()` (usa `ConnectionProvider.DEFAULT`) e `BaseDAO(ConnectionProvider)` (usado nos testes).
@@ -969,8 +1143,10 @@ new Validator()
 | `<T> List<T> query(String sql, RowMapper<T> mapper, Object... params)` | Obtém uma ligação, executa e devolve a lista mapeada; a ligação é fechada (`try-with-resources`). |
 | `<T> List<T> query(Connection c, …)` | Igual, numa ligação já existente (para transações e para o painel). |
 | `<T> T queryOne(…)` | Primeiro resultado ou `null`. |
-| `int update(String sql, Object... params)` / `update(Connection c, …)` | `executeUpdate`; devolve o número de linhas afetadas. |
-| `<T> T inTransaction(TxWork<T> work)` | Transação "tudo ou nada" (ver abaixo). |
+| `String call(String procedure, Object... params)` | Chama a procedure (via `PlSqlOutput`) e devolve a mensagem de sucesso. |
+| `String callForNewId(Sequence, String procedure, Object... params)` | Para as procedures `registrar_*`: devolve o código criado (ex.: `DT-004`). |
+| `boolean callIfFound(String procedure, Object... params)` | Para alterar/eliminar: `false` quando a procedure escreve "nao foi encontrado(a)". |
+| `static void undo(Connection, Exception, String procedure, Object...)` | Desfaz um registo já gravado quando o passo seguinte da mesma operação falha (ex.: `eliminar_reserva` se `associar_alojamento_reserva` falhar). |
 | `String callStringFunction(Connection c, String função, Object... params)` | Monta `{? = call função(?, ?, …)}`, regista a saída `VARCHAR` e devolve o texto. |
 | `static String requireSuccess(String resultado, String prefixoDeSucesso)` | As funções do projeto devolvem uma mensagem em vez de lançar exceções; se a mensagem não começar pelo prefixo esperado, converte-a num erro (`functionError`). |
 | `static ApiException functionError(String)` | `null` → 500 `SEM_RESPOSTA_PLSQL`; contém `ora-` → `DbErrors.fromMessage`; contém "inexistente" → 404; contém "ja existe", "ja tem", "nao e possivel" ou "ja nao esta" → 409; outro → 422. |
@@ -980,21 +1156,19 @@ new Validator()
 | `static Integer getInteger(…)` | Lê inteiro preservando `null` (`wasNull()`). |
 | `static String getTrimmed(…)` | Lê texto sem espaços nas pontas (útil para colunas `CHAR`, como as horas). |
 
-**`inTransaction`, passo a passo**
+**Escritas só por procedures.** Nenhum DAO executa `INSERT`, `UPDATE` ou `DELETE`: cada escrita chama uma procedure de `procedures.sql` (ou uma função de `functions.sql`). Cada procedure faz `COMMIT` no fim e `ROLLBACK` em caso de erro.
 
-1. Obtém uma ligação e guarda o valor atual de `autoCommit`.
-2. Desliga o `autoCommit`.
-3. Executa `work.run(c)`.
-4. Sucesso → `commit()` e devolve o resultado.
-5. `SQLException` ou `RuntimeException` → `rollback()` (um erro no próprio *rollback* é anexado como *suppressed*) e relança a exceção original.
-6. Em qualquer caso, repõe o `autoCommit` e fecha a ligação (devolvendo-a ao *pool*).
-
-**Exemplo** (de `DestinoDAO.addDestino`):
+**Exemplo** (de `DestinoDAO`):
 
 ```java
-return inTransaction(c -> IdGenerator.insertWithNewId(c, IdGenerator.Sequence.DESTINO, id ->
-        update(c, "INSERT INTO DESTINO (ID_DESTINO, NOME_DESTINO, REGIAO, CAPACIDADE_VISITANTES) VALUES (?, ?, ?, ?)",
-                id, destino.getNomeDestino(), destino.getRegiao(), destino.getCapacidadeVisitantes())));
+public String addDestino(Destino destino) throws SQLException {
+    return callForNewId(IdGenerator.Sequence.DESTINO, "registrar_destino",
+            destino.getNomeDestino(), destino.getRegiao(), destino.getCapacidadeVisitantes());
+}
+
+public boolean deleteDestino(String id) throws SQLException {
+    return callIfFound("eliminar_destino", id);
+}
 ```
 
 **Relações:** superclasse de todos os 20 DAOs. Usa `ConnectionProvider`, `AppConfig`, `DbErrors`, `ApiException`.
@@ -1006,24 +1180,14 @@ return inTransaction(c -> IdGenerator.insertWithNewId(c, IdGenerator.Sequence.DE
 |---|---|
 | **Localização** | `dao/IdGenerator.java` |
 | **Tipo** | Classe utilitária `final` com `enum` interno |
-| **Objetivo** | Gerar códigos no formato usado em `Inserts.sql`: prefixo + número da sequência com 3 dígitos (ex.: `DT-007`). |
+| **Objetivo** | Prefixos dos códigos gerados pelas procedures `registrar_*` (formato de `Inserts.sql`: prefixo + número da sequência com 3 dígitos, ex.: `DT-007`). |
 
 **Enum `Sequence`:** `DESTINO("ID_destino","DT-")`, `ATRACAO("ID_atracao","AT-")`, `TURISTA("ID_turista","TR-")`, `RESERVA("ID_reserva","RS-")`, `OPERADOR("ID_operador","OP-")`, `ALOJAMENTO("ID_alojamento","AL-")`, `TRANSPORTE("ID_transporte","TP-")`, `PAGAMENTO("ID_pagamento","PG-")`.
 
-**Métodos**
+**Como o código é obtido:** a procedure gera-o com a sequência e escreve-o na mensagem de sucesso (ex.: "Destino DT-007 registado com sucesso!"). `PlSqlOutput.callProcedureForNewId` lê o código da mensagem; se a procedure falhar com ORA-00001 (número já ocupado, por exemplo por dados inseridos à mão), volta a chamá-la, até `MAX_ATTEMPTS` (20) vezes.
 
-- `static String sql(Sequence)` → `SELECT 'DT-' || LPAD(ID_destino.NEXTVAL, 3, '0') FROM dual`.
-- `static String next(Connection, Sequence)` → executa esse SQL e devolve o código.
-- `static String insertWithNewId(Connection, Sequence, Insert)`:
-  1. Repete até `MAX_ATTEMPTS` (20) vezes:
-  2. pede um novo código à sequência;
-  3. executa o `INSERT` recebido;
-  4. sucesso → devolve o código;
-  5. erro ORA-00001 (código já ocupado, por exemplo por dados inseridos à mão) → tenta o número seguinte; outro erro → relança;
-  6. ao fim de 20 tentativas, relança o último ORA-00001.
-
-**Relações:** usado pelos `add*` de `DestinoDAO`, `AtracaoDAO`, `AlojamentoDAO`, `TransporteDAO`, `OperadorDAO`, `ReservaDAO`, `PagamentoDAO`. O `TuristaDAO` não o usa: o código do turista é gerado pela função `Insere_Turista`.
-**Estado:** implementado e testado (formato verificado em `PlSqlOutputTest`).
+**Relações:** usado por `PlSqlOutput` e pelos `add*` de `DestinoDAO`, `AtracaoDAO`, `AlojamentoDAO`, `TransporteDAO`, `OperadorDAO`, `ReservaDAO` e `PagamentoDAO`. O `TuristaDAO` não o usa: o código do turista é gerado pela função `Insere_Turista`.
+**Estado:** implementado e testado (`PlSqlOutputTest` e testes contra o Oracle).
 **Observações:** as sequências têm `MAXVALUE 999` e os IDs são `VARCHAR2(6)`; ao fim de 999 registos por tabela a criação falha com `SEQUENCIA_ESGOTADA`. Como o Oracle não recua sequências com `ROLLBACK`, os testes de integração deixaram "saltos" na numeração.
 
 #### PlSqlOutput
@@ -1146,10 +1310,10 @@ flowchart LR
     A --> C["get…ById(id)<br/>SELECT + WHERE chave"]
     A --> D["get…By…(fk)<br/>filtros"]
     E["add…(model)"] --> F{"Como cria?"}
-    F -->|"SQL + sequência"| G["inTransaction +<br/>IdGenerator.insertWithNewId"]
+    F -->|"procedure registrar_*"| G["callForNewId<br/>(código lido da mensagem)"]
     F -->|"função PL/SQL"| H["callStringFunction +<br/>requireSuccess"]
     F -->|"procedure PL/SQL"| I["PlSqlOutput.callProcedure"]
-    J["update… / delete…"] --> K["update(sql) > 0"]
+    J["update… / delete…"] --> K["callIfFound(procedure)<br/>atualizar_* / eliminar_* / remover_*"]
     B --> M["map(ResultSet)<br/>linha → model"]
     C --> M
     D --> M
@@ -1176,10 +1340,10 @@ Nas secções seguintes, para cada DAO indicam-se apenas as particularidades. To
 | **Tabela** | `DESTINO` |
 | **SELECT** | Colunas de `DESTINO` + `TOTAL_ATRACOES` e `TOTAL_ALOJAMENTOS` (subconsultas `COUNT(*)`) |
 | **Métodos** | `getAllDestinos()`, `getDestinoById(id)`, `addDestino(d)` → código `DT-xxx`, `updateDestino(d)`, `deleteDestino(id)`, `getDependencias(id)` → `{atracoes, alojamentos, visitas}`, `getInfo(id)` → `{info, atracoes}` |
-| **Criação** | SQL + sequência `ID_destino` (transação) |
+| **Escrita** | Procedures `registrar_destino`, `atualizar_destino` e `eliminar_destino` |
 | **PL/SQL usado** | Funções `Retorna_Info_Destino` e `Lista_Atracoes_Destino` (em `getInfo`) |
 | **Efeitos na BD** | Eliminar dispara o *trigger* `deleteDestino`, que apaga atrações, alojamentos e visitas do destino (e, em cadeia, `deleteAlojamento` apaga as associações desses alojamentos). `getDependencias` conta o que vai ser apagado, para a interface avisar antes. |
-| **Estado** | Leitura, criação, edição e eliminação testadas com `ROLLBACK` contra o Oracle real. |
+| **Estado** | Leitura, criação, edição e eliminação testadas contra o Oracle real (com limpeza no fim). |
 
 #### AtracaoDAO
 
@@ -1187,7 +1351,8 @@ Nas secções seguintes, para cada DAO indicam-se apenas as particularidades. To
 |---|---|
 | **Tabela** | `ATRACAO` (+ *join* com `DESTINO` para `NOME_DESTINO`) |
 | **Métodos** | `getAllAtracoes()`, `getAtracaoById(id)`, `getAtracoesByDestino(idDestino)`, `addAtracao(a)` → `AT-xxx`, `updateAtracao(a)`, `deleteAtracao(id)` |
-| **Criação** | SQL + sequência `ID_atracao`. Não usa a procedure `registrar_atracao`, que está INVALID e recebe horas como `DATE`, quando as colunas são `CHAR(5)` "HH:MM". |
+| **Criação** | Procedure `registrar_atracao` (gera o código `AT-xxx`, lido da mensagem) e, se houver horário especial, `alterar_horario_atracao`. Cada uma faz `COMMIT`; se a segunda falhar, a atração acabada de criar é eliminada com `eliminar_atracao`. |
+| **Edição** | Procedure `atualizar_atracao`: dados base e horário especial num só `UPDATE`. Eliminação com `eliminar_atracao`. |
 | **Conversões** | Horas lidas com `getTrimmed` (colunas `CHAR`). |
 | **Estado** | Leitura implementada e testada. Criação e edição implementadas, mas **bloqueadas na BD** pelos *triggers* inválidos `validarhorabertura`, `validarhorafecho`, `validarhoraberturaesp`, `validarhorafechoesp` (o erro `TRIGGER_INVALIDO` foi testado). |
 
@@ -1198,7 +1363,7 @@ Nas secções seguintes, para cada DAO indicam-se apenas as particularidades. To
 | **Tabela** | `ALOJAMENTO` (+ `DESTINO` e `TIPO_ALOJAMENTO`) |
 | **Campos calculados** | `NOME_DESTINO`, `CAP_ALOJAMENTO` (do tipo), `MEDIA_AVALIACOES` = função `Media_Avaliacao_Alojamento(ID_ALOJAMENTO)` |
 | **Métodos** | `getAllAlojamentos()`, `getAlojamentoById(id)`, `getAlojamentosByDestino(idDestino)`, `addAlojamento(a)` → `AL-xxx`, `updateAlojamento(a)`, `deleteAlojamento(id)` |
-| **Criação** | SQL + sequência `ID_alojamento` |
+| **Escrita** | Procedures `registrar_alojamento`, `atualizar_alojamento` e `eliminar_alojamento` |
 | **Efeitos na BD** | Eliminar dispara `deleteAlojamento` (apaga associações a reservas e operadores). |
 | **Estado** | Leitura testada. Criação e edição **bloqueadas** pelo *trigger* inválido `validarcapalojamento`. |
 
@@ -1209,7 +1374,7 @@ Nas secções seguintes, para cada DAO indicam-se apenas as particularidades. To
 | **Tabela** | `TIPO_ALOJAMENTO` (chave natural: o próprio nome do tipo) |
 | **Campo calculado** | `TOTAL_ALOJAMENTOS` |
 | **Métodos** | `getAllTipoAlojamentos()`, `getTipoAlojamentoById(tipo)`, `addTipoAlojamento(t)` → mensagem da procedure, `updateTipoAlojamento(t)` (só a capacidade), `deleteTipoAlojamento(tipo)` |
-| **Criação** | Procedure `definir_tipo_alojamento` via `PlSqlOutput` (faz `COMMIT`) |
+| **Escrita** | Procedures `definir_tipo_alojamento` (criação), `atualizar_tipo_alojamento` e `eliminar_tipo_alojamento` |
 | **Notas** | A chave não pode mudar porque é referenciada pelos alojamentos; um tipo em uso não pode ser apagado (ORA-02292 → 409). |
 | **Estado** | Leitura e edição testadas (edição com `ROLLBACK`). Criação **não executada nos testes** (gravaria dados permanentemente). |
 
@@ -1220,7 +1385,7 @@ Nas secções seguintes, para cada DAO indicam-se apenas as particularidades. To
 | **Tabela** | `TRANSPORTE` |
 | **Campo calculado** | `TOTAL_OPERADORES` |
 | **Métodos** | `getAllTransportes()`, `getTransporteById(id)`, `addTransporte(t)` → `TP-xxx`, `updateTransporte(t)`, `deleteTransporte(id)` |
-| **Criação** | SQL + sequência `ID_transporte` |
+| **Escrita** | Procedures `registrar_transporte`, `atualizar_transporte` e `eliminar_transporte` |
 | **Efeitos na BD** | `deleteTransporte` apaga associações a operadores. |
 | **Estado** | Criação e eliminação testadas com `ROLLBACK`; edição implementada mas não testada contra a BD. |
 
@@ -1243,7 +1408,7 @@ Nas secções seguintes, para cada DAO indicam-se apenas as particularidades. To
 | **Tabela** | `TURISTA_PREFERENCIA` (chave composta `ID_TURISTA` + `PREFERENCIA`) |
 | **Métodos** | `getAllTuristaPreferencias()`, `getTuristaPreferenciasByTurista(idTurista)`, `getTuristaPreferencia(idTurista, pref)`, `addTuristaPreferencia(tp)`, `updateTuristaPreferencia(idTurista, atual, nova)`, `deleteTuristaPreferencia(idTurista, pref)` |
 | **Criação** | Procedure `inserir_preferencia` |
-| **Edição** | Troca atómica numa transação: `DELETE` da preferência atual + `INSERT` da nova. Não usa `atualizar_pref_turista`, porque essa procedure altera **todas** as preferências do turista (`WHERE` só por `ID_turista`), o que viola a chave composta quando há mais do que uma. |
+| **Edição** | Procedure `atualizar_pref_turista(turista, preferência atual, nova preferência)`. O `WHERE` original era só por `ID_turista` e alterava **todas** as preferências do turista; foi acrescentado o parâmetro da preferência atual (ver `NOTA` em `procedures.sql`). Preferência inexistente → `false` (404). |
 | **Estado** | Troca testada com `ROLLBACK`; caminho de erro da procedure testado (turista inexistente). |
 
 #### OperadorDAO
@@ -1263,8 +1428,8 @@ Nas secções seguintes, para cada DAO indicam-se apenas as particularidades. To
 | **Tabela** | `RESERVA` (+ `TURISTA`) |
 | **Campos calculados** | `NOME_TURISTA`, `NOITES` (`DATA_PARTIDA - DATA_CHEGADA`), `TOTAL_PAGO` = `Total_Pago_Reserva`, `ESTADO_COMPLETUDE` = `Reserva_Completa` |
 | **Métodos** | `getAllReservas()`, `getReservaById(id)`, `getReservasByTurista(idTurista)`, `addReserva(r, idsAlojamento)` → `RS-xxx`, `updateReserva(r)`, `cancelarReserva(id)` → mensagem, `deleteReserva(id)` |
-| **Criação** | Uma só transação: `INSERT` da reserva (com `IdGenerator`) e um `INSERT` em `RESERVA_ALOJAMENTO` por alojamento escolhido (avaliação `NULL`). Se algum falhar, nada fica gravado. Não usa `registrar_reserva` (INVALID) nem `associar_alojamento_reserva` (faz `COMMIT` sozinha, o que impediria a atomicidade). |
-| **Edição** | Uma só instrução `UPDATE`, para as datas e o estado mudarem juntos (os *triggers* de datas veem os dois valores novos). |
+| **Criação** | Procedure `registrar_reserva` (gera `RS-xxx`) e `associar_alojamento_reserva` por cada alojamento escolhido. Cada uma faz `COMMIT`; se uma associação falhar, a reserva é eliminada com `eliminar_reserva` (o *trigger* `deleteReserva` apaga também os alojamentos já associados), por isso fica tudo ou nada. |
+| **Edição** | Procedures `alterar_datas_reserva` e `alterar_turista_reserva` e depois a função `Actualiza_Status_Reserva` (cada uma faz `COMMIT`; o handler valida datas, turista e estado antes). Eliminação com `eliminar_reserva`. |
 | **Cancelamento** | Procedure `cancelar_reserva`. |
 | **Estado** | Leitura testada. Criação, edição, cancelamento e eliminação **bloqueados na BD** (`validardatachegada`, `validardatapartida`, `deleteReserva` inválidos); os caminhos de erro foram testados. |
 
@@ -1275,6 +1440,7 @@ Nas secções seguintes, para cada DAO indicam-se apenas as particularidades. To
 | **Tabela** | `PAGAMENTO` (+ `RESERVA` + `TURISTA` para o nome) |
 | **Métodos** | `getAllPagamentos()`, `getPagamentoById(id)`, `getPagamentosByReserva(idReserva)`, `addPagamento(p)` → `PG-xxx`, `updatePagamento(p)`, `concluirPagamento(id)` → mensagem, `valorEmDolar(id, cotacao)` → `BigDecimal`, `deletePagamento(id)` |
 | **Regras** | A aplicação **nunca** escreve `ID_RECIBO`: o recibo é gerado pela função `Concluir_Pagamento` (sequência `ID_recibo`). `updatePagamento` tem `AND STATUS_PAGAMENTO <> 'CONCLUIDO'` no `WHERE`, para não alterar um pagamento concluído mesmo em concorrência. |
+| **Criação** | Procedure `registrar_pagamento` (gera `PG-xxx`), com o recibo `NULL` e o novo parâmetro opcional `novo_detalhes_transacao`. |
 | **Conversão** | `valorEmDolar` executa `SELECT Valor_Em_Dolar(VALOR, ?) …`; devolve `null` se o pagamento não existir. |
 | **Estado** | Leitura testada. Criação e edição **bloqueadas** pelo *trigger* inválido `validarpagamento`. `Concluir_Pagamento` testado só no caminho de erro (código inexistente). |
 
@@ -1284,7 +1450,7 @@ Nas secções seguintes, para cada DAO indicam-se apenas as particularidades. To
 |---|---|
 | **Tabela** | `TURISTA_DESTINO` (chave de 3 colunas: destino, turista, data da visita) |
 | **Métodos** | `getAllTuristaDestinos()`, `getTuristaDestinosByTurista(id)`, `getTuristaDestinosByDestino(id)`, `getTuristaDestino(idDestino, idTurista, data)`, `addTuristaDestino(td)` → mensagem, `deleteTuristaDestino(…)` |
-| **Criação** | Função `Regista_Visita(destino, turista, data)`, que recusa a visita se o destino já tiver atingido a capacidade nessa data; sucesso esperado: texto começado por "Visita registada". |
+| **Criação** | Procedure `registrar_visita(destino, turista, data)`, que chama a função `Regista_Visita`: esta recusa a visita se o destino já tiver atingido a capacidade nessa data. Os erros da função chegam como "Erro ao registrar visita: …" e são classificados pelo `PlSqlOutput` (inexistente → 404, já tem visita → 409). |
 | **Sem edição** | Todas as colunas fazem parte da chave. |
 | **Estado** | Leitura testada; criação testada no caminho de erro. |
 
@@ -1986,7 +2152,6 @@ Todos em `ui/components/`, pacote `com.turismo.frontend.ui.components`. Formam u
 | `dao/PlSqlOutputTest` | Unitário | 6 | Interpretação da saída das procedures e das mensagens das funções; formato dos códigos gerados |
 | `handler/TuristaHandlerHttpTest` | HTTP com DAO falso | 8 | Lista vazia = `[]` com 200; falha da BD = 503 (nunca lista vazia); caracteres especiais; 404; erros por campo (422); o `PUT` usa o código do caminho; JSON inválido = 400; método não suportado = 405 |
 | `integration/OracleIntegrationTest` | **Integração com o Oracle real** (`@Tag("integracao")`) | 18 | Ver abaixo |
-| `integration/RollbackConnection` | Auxiliar | — | *Proxy* de `Connection` que ignora `commit()`, `close()` e `setAutoCommit()` e faz `ROLLBACK` no fim. Os DAOs "pensam" que gravam, mas nada fica na BD. **Só serve para SQL direto**: funções/procedures que fazem `COMMIT` internamente gravariam de facto. |
 
 **`OracleIntegrationTest` em detalhe:** em `@BeforeAll` tenta ligar e ler `SchemaDAO.status()`; se não conseguir, todos os testes ficam *skipped* (`assumeTrue`). Os testes leem as 15 tabelas; procuram cada registo pela chave (incluindo chaves com data); comparam os totais do painel com as listas; verificam que cada *view* ou é lida ou falha com `ORA-00942`; leem os domínios das restrições `CHECK`; chamam `Retorna_Info_Destino`; criam, alteram e eliminam com `ROLLBACK` (destino, transporte, operador, preferência, turista, tipo de alojamento); confirmam que a restrição `CHECK` rejeita uma região inválida; e confirmam que as escritas bloqueadas por *triggers* inválidos devolvem `TRIGGER_INVALIDO` com o nome do *trigger*. Os testes **adaptam-se** ao estado do esquema (`invalid(nomeDoObjeto)`, `missingViews()`), por isso continuarão válidos depois de aplicar `correcoes.sql`.
 
@@ -2003,14 +2168,7 @@ Todos em `ui/components/`, pacote `com.turismo.frontend.ui.components`. Formam u
 
 ### 11.3 Código auxiliar e restos antigos
 
-| Ficheiro | Pacote / tipo | Situação |
-|---|---|---|
-| `TestDB.java` (raiz) | pacote por omissão, `main` | Diagnóstico manual: liga à BD e lista as colunas de `TURISTA`. Fora do Maven. Compatível com o código atual. |
-| `TestTuristaDAO.java` (raiz) | pacote por omissão, `main` | Diagnóstico manual: lista turistas via `TuristaDAO`. Fora do Maven. |
-| `src/Main.java` | pacote por omissão | "Hello, World" do modelo de projeto. Sem relação com a aplicação. |
-| `backend/src/main.java` | pacote por omissão | `public class main {}` vazia, em minúsculas, fora de `src/main/java`. Não é compilada pelo Maven. |
-| `demo/src/main/java/com/example/Main.java` | `com.example` | "Hello world!" de um projeto Maven independente. |
-| `turista_diagnosis_workflow.js` | JavaScript | Script de um fluxo automático de diagnóstico, com 5 fases (ligação, tabela, dados, DAO, endpoint). **Contém credenciais.** |
+Não há. As classes `main` de diagnóstico e de exemplo (`TestDB.java`, `TestTuristaDAO.java`, `src/Main.java`, `backend/src/main.java`, `demo/.../Main.java`) e o `turista_diagnosis_workflow.js` foram apagados na reorganização de 21-10-2026 ([§7.8](#7.8%20Reorganização%20do%20projeto%20(21-10-2026))). O projeto tem só dois `main`: `TurismoApiServer` e `MainApplication`.
 
 ---
 
@@ -2040,8 +2198,9 @@ classDiagram
         <<abstract>>
         #ConnectionProvider connections
         #query()
-        #update()
-        #inTransaction()
+        #call()
+        #callIfFound()
+        #callForNewId()
         #callStringFunction()
     }
     class DestinoDAO
@@ -2183,11 +2342,11 @@ classDiagram
 
 ## 13. Funcionamento interno dos principais processos
 
-### 13.1 Arranque do sistema com executar.sh
+### 13.1 Arranque do sistema com scripts/executar.sh
 
 ```mermaid
 flowchart TD
-    A(["./executar.sh"]) --> B{"TURISMO_DB_PASSWORD definida<br/>ou db.password no ficheiro local?"}
+    A(["./scripts/executar.sh"]) --> B{"TURISMO_DB_PASSWORD definida<br/>ou db.password no ficheiro local?"}
     B -->|"não"| X1["ERRO: defina a palavra-passe<br/>sai com código 1"]
     B -->|"sim"| C{"Existem os dois .jar<br/>em target/?"}
     C -->|"não"| D["mvn -q -DskipTests package"]
@@ -2212,7 +2371,7 @@ flowchart TD
 ```
 
 > [!note] Recompilação
-> O `executar.sh` só compila quando falta um dos `.jar`. Depois de alterar código, é preciso compilar manualmente (`mvn package` ou `backend/compile.sh`); caso contrário, o script continua a usar os `.jar` antigos.
+> O `scripts/executar.sh` só compila quando falta um dos `.jar`. Depois de alterar código, é preciso compilar manualmente (`mvn package` ou `scripts/compilar.sh`); caso contrário, o script continua a usar os `.jar` antigos.
 
 ### 13.2 Arranque da API
 
@@ -2233,7 +2392,7 @@ sequenceDiagram
     DC->>DC: cria pool HikariCP (1.ª vez)
     DC->>O: abre ligação JDBC
     SD->>O: user_objects (INVALID) + user_views
-    O-->>SD: 16 objetos, 0 views
+    O-->>SD: 0 objetos inválidos, 39 views
     SD-->>S: mapa de estado
     S->>S: escreve avisos na consola
     Note over S,O: Se a BD falhar, só escreve o erro<br/>e continua o arranque
@@ -2292,7 +2451,7 @@ sequenceDiagram
     AC->>H: GET http://localhost:8083/api/destinos
     H->>H: BaseHandler.handle → route (0 segmentos, GET)
     H->>DAO: getAllDestinos()
-    DAO->>DB: SELECT … FROM DESTINO d ORDER BY d.ID_DESTINO
+    DAO->>DB: SELECT * FROM V_LISTA_DESTINOS ORDER BY ID_DESTINO
     DB-->>DAO: linhas
     DAO-->>H: lista de Destino (map)
     H-->>AC: 200 + JSON (Gson)
@@ -2336,12 +2495,10 @@ sequenceDiagram
             F-->>U: erros junto aos campos + faixa
         else válido
             H->>DAO: addDestino(d)
-            DAO->>DB: inTransaction (autoCommit=false)
-            DAO->>IG: insertWithNewId(DESTINO)
-            IG->>DB: SELECT prefixo DT- com ID_destino.NEXTVAL
-            IG->>DB: INSERT INTO DESTINO …
-            DB-->>DAO: ok (CHECK e triggers passam)
-            DAO->>DB: COMMIT
+            DAO->>DB: call registrar_destino(nome, regiao, capacidade)
+            DB->>DB: ID_destino.NEXTVAL, INSERT, COMMIT
+            DB-->>DAO: DBMS_OUTPUT "Destino DT-003 registado com sucesso!"
+            DAO->>IG: prefixo DT- (lê o código da mensagem)
             DAO-->>H: DT-003
             H->>DAO: getDestinoById(DT-003)
             H-->>AC: 201 com message e data
@@ -2353,7 +2510,7 @@ sequenceDiagram
 
 O código `DT-003` é ilustrativo: por causa dos números consumidos pelos testes, o próximo código real pode ser outro.
 
-### 13.6 Criar uma reserva com alojamentos numa transação
+### 13.6 Criar uma reserva com alojamentos
 
 ```mermaid
 sequenceDiagram
@@ -2366,21 +2523,20 @@ sequenceDiagram
     H->>H: validate (datas, estado, chegada >= hoje)
     H->>H: alojamentos sem duplicados nem vazios
     H->>DAO: addReserva(reserva, AL-001 e AL-002)
-    DAO->>DB: autoCommit=false
-    DAO->>DB: NEXTVAL + INSERT RESERVA (RS-xxx)
+    DAO->>DB: registrar_reserva(...) → NEXTVAL, INSERT, COMMIT
+    DB-->>DAO: Reserva RS-xxx gerada com sucesso!
     loop por alojamento
-        DAO->>DB: INSERT RESERVA_ALOJAMENTO (avaliação NULL)
+        DAO->>DB: associar_alojamento_reserva(RS-xxx, AL-…) → INSERT, COMMIT
     end
     alt tudo OK
-        DAO->>DB: COMMIT
         DAO-->>H: RS-xxx
-    else qualquer erro (ex.: trigger inválido, FK inexistente)
-        DAO->>DB: ROLLBACK
-        DAO-->>H: SQLException → DbErrors (ex.: 503 TRIGGER_INVALIDO)
+    else uma associação falhou (ex.: alojamento inexistente)
+        DAO->>DB: eliminar_reserva(RS-xxx) (trigger deleteReserva limpa o resto)
+        DAO-->>H: ApiException (ex.: 422 REFERENCIA_INEXISTENTE)
     end
 ```
 
-Hoje o primeiro `INSERT` falha com `ORA-04098` (*triggers* `VALIDARDATACHEGADA`/`VALIDARDATAPARTIDA` inválidos), por isso a reserva não é criada e o utilizador vê a mensagem do *trigger* inválido.
+Cada procedure faz o seu próprio `COMMIT`, por isso a "transação" é garantida pela compensação: se um passo falhar, a reserva já gravada é eliminada e nada fica a meio.
 
 ### 13.7 Chamada de uma procedure e leitura do DBMS_OUTPUT
 
@@ -2476,7 +2632,7 @@ O `DashboardPage.load()` faz dois pedidos em paralelo:
 1. `GET /api/dashboard` → `DashboardDAO.load()` numa só ligação: contagens das 15 tabelas e 10 *views* (6 do painel + 4 de verificação), cada uma em `try/catch` próprio.
 2. `GET /api/estado` → `SchemaDAO.status()`: objetos inválidos e *views* em falta.
 
-Cada secção do painel é preenchida de forma independente. Com a BD atual, os totais aparecem (as tabelas existem), mas todas as secções baseadas em *views* mostram "View em falta", e a secção "Integridade dos dados" mostra "16 inválidos" e "24 em falta".
+Cada secção do painel é preenchida de forma independente. Com a BD atual, todas as *views* existem e não há objetos inválidos, por isso todas as secções aparecem preenchidas; uma secção só mostra "View em falta" se a respetiva *view* não existir.
 
 
 ---
@@ -2513,8 +2669,8 @@ A aplicação Java respeita esta divisão: reutiliza as funções e procedures v
 | Tipo de operação | Como é executada | Onde |
 |---|---|---|
 | Consultas | `PreparedStatement` com parâmetros `?` e *timeout* | `BaseDAO.query` / `queryOne` |
-| `INSERT`/`UPDATE`/`DELETE` | `PreparedStatement.executeUpdate` | `BaseDAO.update` |
-| Escritas compostas | Transação manual (`autoCommit=false` → `commit`/`rollback`) | `BaseDAO.inTransaction` |
+| `INSERT`/`UPDATE`/`DELETE` | Só dentro das procedures PL/SQL (`CallableStatement`) | `BaseDAO.call` / `callIfFound` / `callForNewId` |
+| Escritas compostas | Uma procedure por passo; se um passo falhar, o registo já criado é eliminado | `BaseDAO.undo` |
 | Funções PL/SQL que devolvem texto | `CallableStatement` `{? = call f(?, …)}` | `BaseDAO.callStringFunction` |
 | Funções PL/SQL dentro de consultas | No próprio `SELECT` (ex.: `Media_Avaliacao_Operador(o.ID_OPERADOR)`) | DAOs |
 | Procedures PL/SQL | `CallableStatement` `{call p(?, …)}` + leitura do `DBMS_OUTPUT` | `PlSqlOutput` |
@@ -2671,14 +2827,14 @@ erDiagram
 
 | Sequência | Prefixo | Gerada por |
 |---|---|---|
-| `ID_destino` | `DT-` | `IdGenerator` (`DestinoDAO`) |
-| `ID_atracao` | `AT-` | `IdGenerator` (`AtracaoDAO`) |
+| `ID_destino` | `DT-` | procedure `registrar_*` (`DestinoDAO`) |
+| `ID_atracao` | `AT-` | procedure `registrar_*` (`AtracaoDAO`) |
 | `ID_turista` | `TR-` | função `Insere_Turista` |
-| `ID_reserva` | `RS-` | `IdGenerator` (`ReservaDAO`) |
-| `ID_operador` | `OP-` | `IdGenerator` (`OperadorDAO`) |
-| `ID_alojamento` | `AL-` | `IdGenerator` (`AlojamentoDAO`) |
-| `ID_transporte` | `TP-` | `IdGenerator` (`TransporteDAO`) |
-| `ID_pagamento` | `PG-` | `IdGenerator` (`PagamentoDAO`) |
+| `ID_reserva` | `RS-` | procedure `registrar_*` (`ReservaDAO`) |
+| `ID_operador` | `OP-` | procedure `registrar_*` (`OperadorDAO`) |
+| `ID_alojamento` | `AL-` | procedure `registrar_*` (`AlojamentoDAO`) |
+| `ID_transporte` | `TP-` | procedure `registrar_*` (`TransporteDAO`) |
+| `ID_pagamento` | `PG-` | procedure `registrar_*` (`PagamentoDAO`) |
 | `ID_recibo` | (definido na função) | função `Concluir_Pagamento` |
 
 Todas as sequências têm `MAXVALUE 999`.
@@ -2695,7 +2851,8 @@ Todas as sequências têm `MAXVALUE 999`.
 | `Retorna_Info_Destino`, `Lista_Atracoes_Destino` | Funções | `DestinoDAO.getInfo` | Ficha do destino |
 | `Insere_Turista` | Função | `TuristaDAO.addTurista` | Criar turista e gerar código |
 | `Elimina_Turista` | Função | `TuristaDAO.deleteTurista` | Eliminar turista sem reservas |
-| `Regista_Visita` | Função | `TuristaDestinoDAO.addTuristaDestino` | Registar visita respeitando a capacidade |
+| `Regista_Visita` | Função | procedure `registrar_visita` | Registar visita respeitando a capacidade |
+| `Actualiza_Status_Reserva` | Função | `ReservaDAO.updateReserva` | Mudar o estado da reserva |
 | `Concluir_Pagamento` | Função | `PagamentoDAO.concluirPagamento` | Concluir e gerar recibo |
 | `definir_tipo_alojamento` | Procedure | `TipoAlojamentoDAO` | Criar tipo |
 | `inserir_preferencia` | Procedure | `TuristaPreferenciaDAO` | Criar preferência |
@@ -2706,8 +2863,32 @@ Todas as sequências têm `MAXVALUE 999`.
 | `associar_operador_transporte` | Procedure | `OperadorTransporteDAO` | Associar operador a transporte |
 | `associar_operador_alojamento` | Procedure | `OperadorAlojamentoDAO` | Associar operador a alojamento |
 | `cancelar_reserva` | Procedure | `ReservaDAO.cancelarReserva` | Cancelar reserva |
+| `registrar_atracao` | Procedure | `AtracaoDAO.addAtracao` | Criar atração |
+| `alterar_horario_atracao` | Procedure | `AtracaoDAO.addAtracao` / `updateAtracao` | Horário especial |
+| `registrar_reserva` | Procedure | `ReservaDAO.addReserva` | Criar reserva |
+| `alterar_datas_reserva` | Procedure | `ReservaDAO.updateReserva` | Alterar datas da reserva |
+| `registrar_pagamento` | Procedure | `PagamentoDAO.addPagamento` | Criar pagamento |
+| `registrar_visita` | Procedure | `TuristaDestinoDAO.addTuristaDestino` | Registar visita (chama `Regista_Visita`) |
+| `atualizar_pref_turista` | Procedure | `TuristaPreferenciaDAO.updateTuristaPreferencia` | Trocar uma preferência |
 
-**Não usados pelo Java:** funções `Capacidade_Alojamento` e `Actualiza_Status_Reserva`; procedures `registrar_reserva`, `registrar_pagamento`, `registrar_visita`, `registrar_atracao` (INVALID), `alterar_horario_atracao` (INVALID), `alterar_datas_reserva` e `atualizar_pref_turista` (com o problema descrito no [TuristaPreferenciaDAO](#TuristaPreferenciaDAO)).
+**As 16 procedures do enunciado (Parte 1 de `procedures.sql`) são todas usadas pelo Java.** A função `Capacidade_Alojamento` é usada dentro da view `v_lista_alojamentos`.
+
+**Procedures de manutenção (Parte 2 de `procedures.sql`, 27), uma por escrita que as do enunciado não cobrem:**
+
+| DAO | Procedures |
+|---|---|
+| `DestinoDAO` | `registrar_destino`, `atualizar_destino`, `eliminar_destino` |
+| `AlojamentoDAO` | `registrar_alojamento`, `atualizar_alojamento`, `eliminar_alojamento` |
+| `TransporteDAO` | `registrar_transporte`, `atualizar_transporte`, `eliminar_transporte` |
+| `OperadorDAO` | `registrar_operador`, `atualizar_operador`, `eliminar_operador` |
+| `AtracaoDAO` | `atualizar_atracao`, `eliminar_atracao` |
+| `ReservaDAO` | `alterar_turista_reserva`, `eliminar_reserva` |
+| `PagamentoDAO` | `atualizar_pagamento` (só pagamentos não concluídos), `eliminar_pagamento` |
+| `TipoAlojamentoDAO` | `atualizar_tipo_alojamento`, `eliminar_tipo_alojamento` |
+| `TuristaDAO` | `atualizar_turista` |
+| Associações | `remover_preferencia`, `remover_visita`, `remover_alojamento_reserva`, `remover_operador_turista`, `remover_operador_transporte`, `remover_operador_alojamento` |
+
+O Java não executa nenhum `INSERT`, `UPDATE` ou `DELETE`: as leituras vêm das views e as escritas destas procedures e das funções.
 
 ### 14.8 Estado real da base de dados
 
@@ -2893,8 +3074,8 @@ curl -X DELETE http://localhost:8083/api/turistaPreferencias/TR-001/Praias
 | Maven | 3.9 ou superior (testado com 3.10.0); não existe Maven Wrapper (`mvnw`) | `README.md`, `RELATORIO_TESTES.md` |
 | Oracle Database | 10g Express Edition 10.2.0.1 numa máquina virtual acessível pela rede | `server.log` |
 | Sistema operativo | macOS (testado) ou Windows (scripts preparados, não testado) | `RELATORIO_TESTES.md` |
-| `curl` | Usado por `executar.sh` e `executar.bat` para verificar se a API responde | scripts |
-| `lsof`, `pkill` | Usados por `backend/run_turismo.sh` | script |
+| `curl` | Usado por `scripts/executar.sh` e `scripts/executar.bat` para verificar se a API responde | scripts |
+| `lsof`, `pkill` | Usados por `scripts/api.sh` | script |
 
 ### 16.2 Dependências (descarregadas pelo Maven)
 
@@ -2961,7 +3142,7 @@ Todos os comandos abaixo são executados a partir da **raiz do projeto** (`Traba
 | `mvn package` | Compila os dois módulos, **corre todos os testes** e cria os `.jar` | `backend/target/turismo-api.jar`, `frontend/target/turismo-desktop.jar` |
 | `mvn -q -DskipTests package` | O mesmo, sem testes e com pouca saída | idem |
 | `mvn -q -DskipTests -pl backend -am package` | Só o backend | `backend/target/turismo-api.jar` |
-| `backend/compile.sh` ou `frontend/compile.sh` | Atalhos (os dois são iguais): `mvn -q -DskipTests package` | ambos os `.jar` |
+| `scripts/compilar.sh` | Atalho: `mvn -q -DskipTests package` | ambos os `.jar` |
 
 Os `.jar` são "gordos" (*shaded*): incluem todas as dependências e podem ser executados só com `java -jar`.
 
@@ -2969,33 +3150,32 @@ Os `.jar` são "gordos" (*shaded*): incluem todas as dependências e podem ser e
 
 | Forma | Comando | Quando usar |
 |---|---|---|
-| Tudo de uma vez (macOS/Linux) | `./executar.sh` | Uso normal. Compila se faltar algum `.jar`, arranca a API (se não estiver a correr) com o log em `backend/server.log`, abre a aplicação e termina a API ao fechar. |
-| Tudo de uma vez (Windows) | `executar.bat` | Igual, mas a API abre numa janela minimizada "Turismo API" que é preciso fechar à mão. **Não testado.** |
-| Só a API, recompilando | `backend/run_turismo.sh` | Desenvolvimento do backend. Exige `TURISMO_DB_PASSWORD`, para um servidor anterior na mesma porta, compila o backend e arranca a API em primeiro plano (Ctrl+C para parar). |
-| Só a API, sem compilar | `backend/run.sh` ou `java -jar backend/target/turismo-api.jar` | API já compilada. |
-| Só a aplicação | `frontend/run.sh` ou `java -jar frontend/target/turismo-desktop.jar` | A API tem de estar a correr. |
+| Tudo de uma vez (macOS/Linux) | `./scripts/executar.sh` | Uso normal. Compila se faltar algum `.jar`, arranca a API (se não estiver a correr) com o log em `backend/server.log`, abre a aplicação e termina a API ao fechar. |
+| Tudo de uma vez (Windows) | `scripts\executar.bat` | Igual, mas a API abre numa janela minimizada "Turismo API" que é preciso fechar à mão. **Não testado.** |
+| Só a API, recompilando | `./scripts/api.sh` | Desenvolvimento do backend. Exige `TURISMO_DB_PASSWORD`, para um servidor anterior na mesma porta, compila o backend e arranca a API em primeiro plano (Ctrl+C para parar). |
+| Só a API, sem compilar | `./scripts/api.sh --sem-compilar` ou `java -jar backend/target/turismo-api.jar` | API já compilada. |
+| Só a aplicação | `./scripts/desktop.sh` ou `java -jar frontend/target/turismo-desktop.jar` | A API tem de estar a correr. |
 | Pelo Maven (sem `.jar`) | `mvn -pl backend exec:java` / `mvn -pl frontend exec:java` | Configurado no `exec-maven-plugin` com `turismo.config.dir`. **Não verificado** nesta análise (pode exigir compilação prévia). |
 
 **Diferenças entre os scripts**
 
 | Script | Verifica palavra-passe | Compila | Arranca API | Abre aplicação | Para a API no fim |
 |---|---|---|---|---|---|
-| `executar.sh` | Sim (variável ou ficheiro com valor) | Só se faltar um `.jar` | Se não estiver a correr | Sim | Sim (se foi ele a arrancá-la) |
-| `executar.bat` | Sim (variável ou existência do ficheiro) | Só se faltar um `.jar` | Se não estiver a correr | Sim | Não |
-| `backend/run_turismo.sh` | Sim (só a variável) | Sempre (só o backend) | Sim (mata a anterior) | Não | Ctrl+C |
-| `backend/run.sh` | Não | Não | Sim | Não | Ctrl+C |
-| `frontend/run.sh` | Não | Não | Não | Sim | — |
-| `*/compile.sh` | Não | Sempre (os dois módulos) | Não | Não | — |
+| `scripts/executar.sh` | Sim (variável ou ficheiro com valor) | Só se faltar um `.jar` | Se não estiver a correr | Sim | Sim (se foi ele a arrancá-la) |
+| `scripts/executar.bat` | Sim (variável ou existência do ficheiro) | Só se faltar um `.jar` | Se não estiver a correr | Sim | Não |
+| `scripts/api.sh` | Sim (só a variável) | Sempre, só o backend (exceto com `--sem-compilar`) | Sim (mata a anterior) | Não | Ctrl+C |
+| `scripts/desktop.sh` | Não | Não | Não | Sim | — |
+| `scripts/compilar.sh` | Não | Sempre (os dois módulos) | Não | Não | — |
 
 > [!note] Diferença subtil entre `.sh` e `.bat`
-> O `executar.sh` aceita o ficheiro local só se `db.password=` tiver um valor; o `executar.bat` aceita-o desde que o ficheiro exista, mesmo com o valor vazio. Nesse caso, a API arranca e falha no primeiro pedido com `BD_SEM_CREDENCIAIS`.
+> O `scripts/executar.sh` aceita o ficheiro local só se `db.password=` tiver um valor; o `executar.bat` aceita-o desde que o ficheiro exista, mesmo com o valor vazio. Nesse caso, a API arranca e falha no primeiro pedido com `BD_SEM_CREDENCIAIS`.
 
 ### 17.3 Registos
 
 | Onde | O quê |
 |---|---|
 | Consola da API | Estado da BD no arranque, rotas e erros dos pedidos (`[MÉTODO caminho] código: mensagem` para erros ≥ 500 e erros SQL) |
-| `backend/server.log` | A mesma saída, quando a API é arrancada por `executar.sh`/`executar.bat` (substituída a cada arranque) |
+| `backend/server.log` | A mesma saída, quando a API é arrancada por `scripts/executar.sh`/`scripts/executar.bat` (substituída a cada arranque) |
 | SLF4J Simple | Avisos e erros do HikariCP (nível `warn`), configurado em `simplelogger.properties` |
 | Consola da aplicação | Erros de leitura de configuração |
 | `*/target/surefire-reports/` | Resultados dos testes |
@@ -3034,7 +3214,7 @@ mvn clean test
 | Capturas | Gravadas em `frontend/target/screenshots/` |
 
 > [!caution] Efeitos dos testes na base de dados
-> Os testes de escrita usam `RollbackConnection` e desfazem tudo no fim. No entanto, **consomem números das sequências** (o Oracle não recua sequências), o que cria saltos na numeração dos códigos.
+> Como todas as escritas são procedures que fazem `COMMIT`, os testes de escrita só exercitam caminhos de erro (registo inexistente, regra violada), que não gravam nada. Mesmo assim, **consomem números das sequências** (o Oracle não recua sequências), o que cria saltos na numeração dos códigos.
 
 ### 18.2 Último resultado conhecido
 
@@ -3084,9 +3264,9 @@ Separação entre **defeitos confirmados** (o comportamento real difere do esper
 
 | # | Problema | Evidência | Impacto |
 |---|---|---|---|
-| P1 | 11 *triggers* e 5 procedures INVALID na BD | `backend/server.log`; `OracleIntegrationTest` (erros `TRIGGER_INVALIDO`) | Escritas bloqueadas em atrações, alojamentos, reservas, pagamentos, avaliações; eliminação de reservas e turistas |
-| P2 | Nenhuma das 24 *views* existe | `server.log` ("faltam 24 das 24 views") | Separador "Relatórios" e quase todo o painel sem dados |
-| P3 | Credenciais em texto simples num ficheiro do projeto | `turista_diagnosis_workflow.js` (fase 1) | Risco de segurança se o projeto for partilhado |
+| P1 | ~~11 *triggers* e 5 procedures INVALID na BD~~ **Resolvido a 21-10-2026:** 0 objetos inválidos | `/api/estado` | — |
+| P2 | ~~Nenhuma das *views* existe~~ **Resolvido a 21-10-2026:** as 39 *views* existem | `/api/estado` | — |
+| P3 | Credenciais em texto simples no histórico do Git | `turista_diagnosis_workflow.js` (apagado a 21-10-2026, mas presente no primeiro commit) | Risco de segurança se o repositório for partilhado: mudar a palavra-passe (C1) |
 | P4 | Tabelas e *triggers* de auditoria inexistentes; `Triggers.sql` com `UPTADE` e *trigger* chamado `Transporte` | `IMPLEMENTATION_PLAN.md` §1; `Triggers.sql` linhas 87–100 | A auditoria prevista no trabalho não funciona |
 | P5 | `correcoes.sql` nunca foi compilado no Oracle | `RELATORIO_TESTES.md` | Pode conter erros de sintaxe ainda desconhecidos |
 | P6 | Documentação existente inconsistente quanto ao número de objetos inválidos (12/17 vs. 16) | `README.md`, `PROGRESS_CHECKLIST.md`, `server.log` | Confusão ao verificar a correção |
@@ -3097,12 +3277,12 @@ Separação entre **defeitos confirmados** (o comportamento real difere do esper
 |---|---|---|
 | O1 | Sequências limitadas a 999 e códigos `VARCHAR2(6)`: subir o `MAXVALUE` **não chega**, porque `DT-1000` tem 7 caracteres | `Sequences.sql`, `tabelas.sql`, `IdGenerator` |
 | O2 | Os testes consumiram números das sequências (saltos na numeração) | `RELATORIO_TESTES.md` |
-| O3 | A API não tem autenticação (mitigado por escutar só em `127.0.0.1`) | `TurismoApiServer`, `README.md` |
+| O3 | ~~A API não tem autenticação~~ **Resolvido a 22-10-2026:** contas, sessões e filtro de autenticação ([AUTENTICACAO_E_INTERFACE.md](AUTENTICACAO_E_INTERFACE.md)) | `auth/`, `AuthHandler`, `database/contas.sql` |
 | O4 | As listas carregam todos os registos (sem paginação); os relatórios estão limitados a 1000 linhas | DAOs, `RelatorioDAO.MAX_ROWS` |
 | O5 | O campo `truncated` dos relatórios não é mostrado na interface | `RelatorioDAO`, `ReportPanel` |
 | O6 | O painel carrega `v_total_alojamentos_destino` e `v_avaliacao_operador`, mas não as mostra | `DashboardDAO`, `DashboardPage` |
 | O7 | Código não usado: `BaseHandler.sendErrorResponse`, `DatabaseConnection.closeConnection`, `ModuleSpec.canCreate`/`canDelete` (sempre `true`), `ModuleSpec.emptyMessage(...)`, `Theme.addListener`, `WrapText.widthHint(...)`, `ColumnSpec.Type.DECIMAL` | ver as classes |
-| O8 | Restos antigos que não pertencem à aplicação: pastas `out/`, `out_test/`, `backend_out_test/`, `.class` na raiz (um sem fonte), `TestDB.java`, `TestTuristaDAO.java`, `src/Main.java`, `backend/src/main.java`, `demo/`, `backend/lib/ojdbc11.jar` | [§7](#7.%20Explicação%20das%20pastas%20e%20dos%20ficheiros) |
+| O8 | ~~Restos antigos que não pertencem à aplicação~~ **Resolvido a 21-10-2026** (apagados na reorganização) | [§7.8](#7.8%20Reorganização%20do%20projeto%20(21-10-2026)) |
 | O9 | A *cache* das listas de valores (`ConstraintCatalog` no servidor, `Lookups` no cliente) não é invalidada: mudanças nas restrições exigem reiniciar | `ConstraintCatalog`, `Lookups` |
 | O10 | Não há ficheiro de log próprio com rotação; os erros vão para a consola | [§17.3](#17.3%20Registos) |
 | O11 | A lista `ENDPOINTS` e os `createContext` estão duplicados | `TurismoApiServer` |
@@ -3163,7 +3343,7 @@ Legenda: **Implementada** · **Parcialmente implementada** · **Por implementar*
 | Tema claro/escuro e fonte incluída | `Theme`, `Palette` | Implementada | `MainWindowUiTest`, capturas | — |
 | Atalhos de teclado | `MainWindow`, `CrudPage` | Implementada | código; README | — |
 | Execução em macOS | scripts | Implementada | `RELATORIO_TESTES.md` | — |
-| Execução em Windows | `executar.bat` | Não verificada | sem máquina Windows | Testar |
+| Execução em Windows | `scripts/executar.bat` | Não verificada | sem máquina Windows | Testar |
 | Auditoria (tabelas `auditoria_*`) | `Tabelas_de_Historico.sql`, `Triggers.sql` | Com problemas identificados | não existem na BD; `UPTADE` | Corrigir e aplicar os scripts |
 | Autenticação de utilizadores | — | Não aplicável | não pedida no âmbito atual | Só se a API sair de `localhost` |
 
@@ -3176,14 +3356,16 @@ Legenda: **Implementada** · **Parcialmente implementada** · **Por implementar*
 - [x] Tradução de erros Oracle e estados de erro distintos de "vazio"
 - [x] 91 testes automáticos a passar (último relatório)
 - [x] Script `correcoes.sql` escrito
-- [ ] Remover `turista_diagnosis_workflow.js` e alterar a palavra-passe da BD
+- [x] Remover `turista_diagnosis_workflow.js` (21-10-2026)
+- [ ] Alterar a palavra-passe da BD (continua no histórico do Git)
 - [ ] Rever, compilar e aplicar `correcoes.sql` (com autorização)
-- [ ] Confirmar 0 objetos inválidos e 24 *views* em `/api/estado`
+- [x] Confirmar 0 objetos inválidos e as 39 *views* em `/api/estado` (21-10-2026)
 - [ ] Testar com sucesso as escritas desbloqueadas (atrações, alojamentos, reservas, pagamentos, avaliações)
 - [ ] Testar as funções e procedures que fazem `COMMIT`, com limpeza no fim
 - [ ] Corrigir e criar as tabelas e os *triggers* de auditoria (se fizerem parte dos requisitos)
-- [ ] Executar `mvn clean test` e `executar.bat` em Windows
-- [ ] Limpar restos antigos e código não usado
+- [ ] Executar `mvn clean test` e `scripts\executar.bat` em Windows
+- [x] Limpar restos antigos (21-10-2026)
+- [ ] Decidir sobre o código não usado (O7)
 - [ ] Atualizar a documentação antiga (contagem de objetos inválidos)
 
 ---
@@ -3193,12 +3375,12 @@ Legenda: **Implementada** · **Parcialmente implementada** · **Por implementar*
 ### 21.1 Prioridade crítica
 
 **C1 — Remover credenciais expostas**
-- **Problema:** `turista_diagnosis_workflow.js` (raiz) contém o utilizador e a palavra-passe da base de dados em texto simples.
+- **Problema:** `turista_diagnosis_workflow.js` continha o utilizador e a palavra-passe da base de dados em texto simples. O ficheiro foi apagado a 21-10-2026, mas está no primeiro commit do Git, por isso a palavra-passe continua acessível no histórico.
 - **Evidência:** conteúdo do ficheiro (fase "Database Connection Check"); aviso já registado em `IMPLEMENTATION_PLAN.md` §5.
 - **Componentes:** ficheiro na raiz; conta Oracle.
 - **Resultado esperado:** nenhum segredo em ficheiros do projeto; palavra-passe antiga inválida.
 - **Dependências:** acesso de administrador ao Oracle para mudar a palavra-passe.
-- **Recomendação:** apagar o ficheiro (não é usado pela aplicação), mudar a palavra-passe da conta e atualizar `TURISMO_DB_PASSWORD`. Se o projeto já tiver sido partilhado ou versionado, considerar a palavra-passe comprometida.
+- **Recomendação:** ~~apagar o ficheiro~~ (feito); falta mudar a palavra-passe da conta e atualizar `TURISMO_DB_PASSWORD`. Se o projeto já tiver sido partilhado ou versionado, considerar a palavra-passe comprometida.
 
 **C2 — Corrigir os objetos PL/SQL inválidos e criar as *views***
 - **Problema:** 16 objetos inválidos e 24 *views* em falta impedem as operações centrais do negócio (reservas e pagamentos) e os relatórios.
@@ -3237,15 +3419,15 @@ Legenda: **Implementada** · **Parcialmente implementada** · **Por implementar*
 **A4 — Validar em Windows**
 - **Problema:** o README declara suporte a Windows, mas nunca foi testado.
 - **Evidência:** `RELATORIO_TESTES.md`, `PROGRESS_CHECKLIST.md`.
-- **Componentes:** `executar.bat`, testes de interface.
-- **Resultado esperado:** `mvn clean test` e `executar.bat` sem erros em Windows.
+- **Componentes:** `scripts/executar.bat`, testes de interface.
+- **Resultado esperado:** `mvn clean test` e `scripts\executar.bat` sem erros em Windows.
 - **Dependências:** máquina Windows com JDK 21+, Maven e acesso à VM.
 
 ### 21.3 Prioridade média
 
 | ID | Tarefa | Evidência | Resultado esperado | Recomendação |
 |---|---|---|---|---|
-| M1 | Limpar restos antigos (O8) | [§7](#7.%20Explicação%20das%20pastas%20e%20dos%20ficheiros) | Raiz e módulos só com o que a aplicação usa | Confirmar com o grupo e remover `out*/`, `backend_out_test/`, `.class` da raiz, `TestDB.java`, `TestTuristaDAO.java`, `src/`, `backend/src/main.java`, `demo/`, `backend/lib/` |
+| M1 | ~~Limpar restos antigos (O8)~~ | [§7.8](#7.8%20Reorganização%20do%20projeto%20(21-10-2026)) | Raiz e módulos só com o que a aplicação usa | **Feito a 21-10-2026** |
 | M2 | Decidir sobre o código não usado (O7) | classes indicadas | Código sem membros mortos ou com uso real | Remover ou passar a usar (ex.: `emptyMessage` em módulos vazios) |
 | M3 | Limite das sequências (O1) | `Sequences.sql`, `tabelas.sql` | Estratégia para mais de 999 registos por tabela | Só é relevante se o volume crescer; exigiria alargar as colunas `ID_*` |
 | M4 | Mostrar ou deixar de pedir dados não usados (O5, O6) | `RelatorioDAO`, `DashboardDAO` | Interface coerente com os dados carregados | Mostrar um aviso quando `truncated = true` |
@@ -3340,7 +3522,7 @@ flowchart LR
 | **Pool de ligações** | Conjunto de ligações reutilizáveis à base de dados. |
 | **PreparedStatement** | Instrução SQL pré-compilada com parâmetros `?`, que protege contra injeção de SQL. |
 | **Procedure** | Bloco PL/SQL com nome que executa ações (não devolve valor como uma função). |
-| **Proxy** | Objeto intermediário que se faz passar por outro e interceta as chamadas (ex.: `RollbackConnection`). |
+| **Proxy** | Objeto intermediário que se faz passar por outro e interceta as chamadas. |
 | **Sequência** | Objeto Oracle que gera números crescentes (`NEXTVAL`). |
 | **Shaded JAR** | `.jar` que inclui todas as dependências, executável com `java -jar`. |
 | **Shutdown hook** | Código que a JVM executa quando o programa termina (a API usa-o para parar o servidor e fechar o *pool*). |
@@ -3366,7 +3548,7 @@ flowchart LR
 
 1. Leia os capítulos [1](#1.%20Apresentação%20do%20projeto), [5](#5.%20Arquitetura%20geral) e [13.4](#13.4%20Operação%20completa%20—%20listar%20um%20módulo).
 2. Configure a palavra-passe ([§16.3](#16.3%20Chaves%20de%20configuração)) e confirme que a VM Oracle está ligada.
-3. Na raiz: `./executar.sh`. Abra o painel e veja a secção "Integridade dos dados".
+3. Na raiz: `./scripts/executar.sh`. Abra o painel e veja a secção "Integridade dos dados".
 4. Abra `backend/server.log` para ver o estado da BD no arranque.
 5. Percorra os módulos; veja que os separadores "Relatórios" mostram "view não existe" (esperado enquanto [C2](#21.1%20Prioridade%20crítica) não estiver feito).
 
@@ -3375,7 +3557,7 @@ flowchart LR
 | Quero… | Ficheiros |
 |---|---|
 | Acrescentar uma coluna à lista de um módulo | `Modules.java` (`.column(...)`); se o campo não existir no JSON, também o `SELECT` e o `map` do DAO e o *model* |
-| Acrescentar um campo ao formulário | `Modules.java` (`.field(...)`), o *model*, o `read()` do *handler* (validação) e o `INSERT`/`UPDATE` do DAO |
+| Acrescentar um campo ao formulário | `Modules.java` (`.field(...)`), o *model*, o `read()` do *handler* (validação) e a procedure correspondente (`registrar_*`/`atualizar_*` em `procedures.sql`) e a chamada no DAO |
 | Mudar uma regra de validação | `Validator` e o `read()` do *handler* (servidor); `FieldSpec` / `crossValidation` em `Modules` (cliente) |
 | Criar uma nova rota | Um *handler* que estenda `BaseHandler`; registá-lo com `createContext` e na lista `ENDPOINTS` de `TurismoApiServer`; o DAO (estender `BaseDAO`) |
 | Criar um novo módulo (tabela) | *Model* + DAO + *handler* + registo no servidor + `ModuleSpec` em `Modules` + `all()` + `MainWindow.group(...)` |
@@ -3390,16 +3572,16 @@ flowchart LR
 - Pedidos à API **só** dentro de `Task.run(...)`.
 - Os DAOs **propagam** a `SQLException`; não a escondem.
 - Valores do utilizador **sempre** como parâmetros `?`.
-- Escritas com várias instruções dentro de `inTransaction`.
+- Escritas só por procedures/funções PL/SQL; nunca `INSERT`/`UPDATE`/`DELETE` no Java.
 - Funções e procedures PL/SQL que devolvem mensagens: `requireSuccess` ou `PlSqlOutput`.
 - Nenhuma palavra-passe em ficheiros versionados.
-- Testes de escrita contra o Oracle só com `RollbackConnection` (ou com limpeza explícita, se fizerem `COMMIT`).
+- Testes de escrita contra o Oracle só em caminhos de erro (ou com limpeza explícita, porque as procedures fazem `COMMIT`).
 
 ### 24.4 Verificação antes de entregar alterações
 
 ```bash
 mvn clean test          # a partir da raiz; integração fica "skipped" sem BD
-mvn -q -DskipTests package && ./executar.sh
+mvn -q -DskipTests package && ./scripts/executar.sh
 ```
 
 ---
@@ -3410,7 +3592,7 @@ mvn -q -DskipTests package && ./executar.sh
 |---|---|
 | [`../pom.xml`](../pom.xml) | Versões de Java, dependências e *plugins* |
 | [`../config/turismo.properties`](../config/turismo.properties) | Configuração da BD, da API e do cliente |
-| [`../executar.sh`](../executar.sh) / [`../executar.bat`](../executar.bat) | Arranque completo |
+| [`../scripts/`](../scripts/) | Scripts de execução (`executar.sh`/`.bat`, `compilar.sh`, `api.sh`, `desktop.sh`) |
 | `../backend/src/main/java/com/turismo/api/TurismoApiServer.java` | Rotas registadas e arranque da API |
 | `../backend/src/main/java/com/turismo/api/handler/BaseHandler.java` | Tratamento comum de pedidos e erros |
 | `../backend/src/main/java/com/turismo/api/dao/BaseDAO.java` | JDBC comum, transações, PL/SQL |
@@ -3425,9 +3607,9 @@ mvn -q -DskipTests package && ./executar.sh
 | `../backend/server.log` | Último estado da BD visto pela API (gerado; pode não existir noutra cópia) |
 | [`../README.md`](../README.md) | README original (resumo) |
 | [`../backend/README.md`](../backend/README.md) | Referência curta da API |
-| [`../IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md) | Auditoria e decisões |
-| [`../PROGRESS_CHECKLIST.md`](../PROGRESS_CHECKLIST.md) | Estado por módulo |
-| [`../RELATORIO_TESTES.md`](../RELATORIO_TESTES.md) | Relatório de testes |
+| [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) | Auditoria e decisões (20-10-2026) |
+| [`PROGRESS_CHECKLIST.md`](PROGRESS_CHECKLIST.md) | Estado por módulo (20-10-2026) |
+| [`RELATORIO_TESTES.md`](RELATORIO_TESTES.md) | Relatório de testes (20-10-2026) |
 | `../frontend/target/screenshots/` | Capturas da interface (geradas pelos testes) |
 
 > [!note] Ligações relativas

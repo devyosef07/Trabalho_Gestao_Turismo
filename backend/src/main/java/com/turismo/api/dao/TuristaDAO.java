@@ -63,9 +63,10 @@ public class TuristaDAO extends BaseDAO {
         }
     }
 
+    /** Usa a procedure atualizar_turista. */
     public boolean updateTurista(Turista turista) throws SQLException {
-        return update("UPDATE TURISTA SET NOME_TURISTA = ?, NACIONALIDADE = ? WHERE ID_TURISTA = ?",
-                turista.getNomeTurista(), turista.getNacionalidade(), turista.getIdTurista()) > 0;
+        return callIfFound("atualizar_turista", turista.getIdTurista(), turista.getNomeTurista(),
+                turista.getNacionalidade());
     }
 
     /**

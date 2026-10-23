@@ -24,21 +24,51 @@ import java.util.Map;
  *
  * Todos os métodos bloqueiam até haver resposta: devem ser chamados fora da
  * Event Dispatch Thread (ver {@code ui.async.Task}).
+ *
+ * Depois de iniciar sessão, cada pedido leva o token no cabeçalho
+ * "Authorization: Bearer". Se a API responder 401 a um pedido com token (a
+ * sessão expirou ou foi terminada), avisa o ouvinte de sessão expirada.
  */
 public class ApiClient {
 
     private final ClientConfig config;
     private final HttpClient http;
+    private volatile String token;
+    private volatile Runnable onSessionExpired;
 
     public ApiClient(ClientConfig config) {
-        this.config = config;
-        this.http = HttpClient.newBuilder()
+        this(config, HttpClient.newBuilder()
                 .connectTimeout(java.time.Duration.ofSeconds(5))
-                .build();
+                .build(), null);
+    }
+
+    private ApiClient(ClientConfig config, HttpClient http, String token) {
+        this.config = config;
+        this.http = http;
+        this.token = token;
+    }
+
+    /** Cliente com um token fixo e sem ouvinte (ex.: revogar uma sessão que já saiu da interface). */
+    public ApiClient withToken(String fixedToken) {
+        return new ApiClient(config, http, fixedToken);
     }
 
     public String baseUrl() {
         return config.baseUrl();
+    }
+
+    /** Token da sessão atual (null depois de terminar a sessão). */
+    public void setToken(String token) {
+        this.token = token;
+    }
+
+    public boolean hasToken() {
+        return token != null;
+    }
+
+    /** Chamado (fora da EDT) quando um pedido autenticado recebe 401. */
+    public void setSessionExpiredListener(Runnable listener) {
+        this.onSessionExpired = listener;
     }
 
     public JsonArray getArray(String path) throws ApiException {
@@ -74,6 +104,10 @@ public class ApiClient {
         HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(config.baseUrl() + path))
                 .timeout(config.timeout())
                 .header("Accept", "application/json");
+        String sent = token;
+        if (sent != null) {
+            builder.header("Authorization", "Bearer " + sent);
+        }
         if (body != null) {
             builder.header("Content-Type", "application/json; charset=UTF-8")
                     .method(method, HttpRequest.BodyPublishers.ofString(body.toString(), StandardCharsets.UTF_8));
@@ -99,6 +133,12 @@ public class ApiClient {
         }
 
         JsonElement parsed = parse(response.body());
+        if (response.statusCode() == 401 && sent != null && sent.equals(token) && !path.startsWith("/auth/")) {
+            Runnable listener = onSessionExpired;
+            if (listener != null) {
+                listener.run();
+            }
+        }
         if (response.statusCode() >= 400) {
             throw error(response.statusCode(), parsed);
         }

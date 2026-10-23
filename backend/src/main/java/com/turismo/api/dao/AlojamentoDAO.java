@@ -38,23 +38,21 @@ public class AlojamentoDAO extends BaseDAO {
         return query(SELECT + " WHERE ID_DESTINO = ? ORDER BY ID_ALOJAMENTO", AlojamentoDAO::map, idDestino);
     }
 
+    /** Usa a procedure registrar_alojamento. */
     public String addAlojamento(Alojamento a) throws SQLException {
-        return inTransaction(c -> IdGenerator.insertWithNewId(c, IdGenerator.Sequence.ALOJAMENTO, id ->
-                update(c, "INSERT INTO ALOJAMENTO (ID_ALOJAMENTO, NOME_ALOJAMENTO, TIPO_ALOJAMENTO, CLASS_ALOJAMENTO, ID_DESTINO) "
-                                + "VALUES (?, ?, ?, ?, ?)",
-                        id, a.getNomeAlojamento(), a.getTipoAlojamento(), a.getClassAlojamento(), a.getIdDestino())));
+        return callForNewId(IdGenerator.Sequence.ALOJAMENTO, "registrar_alojamento",
+                a.getNomeAlojamento(), a.getTipoAlojamento(), a.getClassAlojamento(), a.getIdDestino());
     }
 
+    /** Usa a procedure atualizar_alojamento. */
     public boolean updateAlojamento(Alojamento a) throws SQLException {
-        return update("UPDATE ALOJAMENTO SET NOME_ALOJAMENTO = ?, TIPO_ALOJAMENTO = ?, CLASS_ALOJAMENTO = ?, ID_DESTINO = ? "
-                        + "WHERE ID_ALOJAMENTO = ?",
-                a.getNomeAlojamento(), a.getTipoAlojamento(), a.getClassAlojamento(), a.getIdDestino(),
-                a.getIdAlojamento()) > 0;
+        return callIfFound("atualizar_alojamento", a.getIdAlojamento(), a.getNomeAlojamento(),
+                a.getTipoAlojamento(), a.getClassAlojamento(), a.getIdDestino());
     }
 
-    /** O trigger deleteAlojamento apaga as associações a reservas e operadores. */
+    /** Usa a procedure eliminar_alojamento; o trigger deleteAlojamento apaga as associações a reservas e operadores. */
     public boolean deleteAlojamento(String id) throws SQLException {
-        return update("DELETE FROM ALOJAMENTO WHERE ID_ALOJAMENTO = ?", id) > 0;
+        return callIfFound("eliminar_alojamento", id);
     }
 
     private static Alojamento map(ResultSet rs) throws SQLException {

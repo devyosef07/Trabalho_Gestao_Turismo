@@ -56,8 +56,9 @@ public class ReservaAlojamentoDAO extends BaseDAO {
         }
     }
 
+    /** Usa a procedure remover_alojamento_reserva. */
     public boolean deleteReservaAlojamento(String idReserva, String idAlojamento) throws SQLException {
-        return update("DELETE FROM RESERVA_ALOJAMENTO WHERE ID_RESERVA = ? AND ID_ALOJAMENTO = ?", idReserva, idAlojamento) > 0;
+        return callIfFound("remover_alojamento_reserva", idReserva, idAlojamento);
     }
 
     private static ReservaAlojamento map(ResultSet rs) throws SQLException {
