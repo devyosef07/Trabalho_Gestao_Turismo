@@ -4,6 +4,7 @@ import com.turismo.frontend.api.ApiClient;
 import com.turismo.frontend.api.ClientConfig;
 import com.turismo.frontend.modules.CrudPage;
 import com.turismo.frontend.modules.FormDialog;
+import com.turismo.frontend.pages.AboutPage;
 import com.turismo.frontend.ui.components.Spinner;
 import com.turismo.frontend.ui.theme.Theme;
 import org.junit.jupiter.api.AfterEach;
@@ -87,6 +88,18 @@ class MainWindowUiTest {
             assertEquals(id, edt(() -> window.sidebar().getActive()));
             assertEquals("empty", edt(page::visibleState), "lista vazia em " + id);
         }
+    }
+
+    @Test
+    void botaoSobreAbreOEcraDoProjeto() throws Exception {
+        stub = new StubApi();
+        open(stub);
+        JButton about = edt(() -> find(window.workspace(), "sobre", JButton.class));
+        assertNotNull(about, "botão Sobre no rodapé da navegação");
+        edt(() -> about.doClick());
+        assertEquals(Workspace.ABOUT, edt(window::currentPage));
+        assertTrue(edt(() -> window.page(Workspace.ABOUT)) instanceof AboutPage);
+        assertEquals(null, edt(() -> window.sidebar().getActive()), "nenhum módulo fica marcado");
     }
 
     @Test

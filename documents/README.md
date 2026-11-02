@@ -31,7 +31,7 @@ data_analise: 2026-10-20
 
 > [!tip] Dois percursos de leitura
 > **Percurso de aprendizagem** — leia pela ordem: capítulos 1 → 2 → 3 → 5 → 13 → 9 → 10 → 14 → 15.
-> **Percurso de consulta** — procure diretamente no [Índice de classes](#Índice%20de%20classes), na [tabela de rotas](#15.2%20Tabela%20completa%20de%20rotas), na [tabela de entidades](#14.5%20Tabelas%20e%20relações) ou na [referência de ficheiros](#25.%20Referência%20de%20ficheiros%20importantes).
+> **Percurso de consulta** — procure diretamente no [Índice de classes](#Índice%20de%20classes), na [tabela de rotas](#15.2%20Tabela%20completa%20de%20rotas), na [tabela de entidades](#14.5%20Tabelas%20e%20relações), no [mapa script SQL → classe Java](#14.10%20Mapa%20para%20a%20defesa%20—%20onde%20cada%20script%20SQL%20é%20usado%20no%20Java) ou na [referência de ficheiros](#25.%20Referência%20de%20ficheiros%20importantes).
 
 **Parte I — Compreender o projeto**
 1. [Apresentação do projeto](#1.%20Apresentação%20do%20projeto)
@@ -56,7 +56,7 @@ data_analise: 2026-10-20
 **Parte IV — Funcionamento**
 
 13. [Funcionamento interno dos principais processos](#13.%20Funcionamento%20interno%20dos%20principais%20processos)
-14. [Base de dados e acesso a dados](#14.%20Base%20de%20dados%20e%20acesso%20a%20dados)
+14. [Base de dados e acesso a dados](#14.%20Base%20de%20dados%20e%20acesso%20a%20dados) — inclui o [Mapa para a defesa — onde cada script SQL é usado no Java](#14.10%20Mapa%20para%20a%20defesa%20—%20onde%20cada%20script%20SQL%20é%20usado%20no%20Java)
 15. [API REST e rotas](#15.%20API%20REST%20e%20rotas)
 
 **Parte V — Trabalhar com o projeto**
@@ -594,10 +594,14 @@ Legenda da coluna **Natureza**: **Código** (código-fonte próprio) · **Config
 | `procedures.sql` | Único script de procedures (43), com um índice no topo a explicar cada uma. Parte 1: as 16 do enunciado (A a Q). Parte 2: 27 de manutenção (`registrar_*`, `atualizar_*`, `eliminar_*`, `remover_*`). | Todas são chamadas através de `PlSqlOutput`: a aplicação nunca escreve diretamente nas tabelas. |
 | `Triggers.sql` | 15 *triggers* de auditoria, 6 de eliminação em cascata e 12 de validação. | Afetam diretamente as escritas da API. |
 | `views.sql` | 39 *views*: 24 de relatório e verificação + 15 de listagem (`v_lista_*`). | Todas as leituras do Java vêm destas *views*; `RelatorioDAO.VIEWS` lista as 24 de relatório. |
+| `contas.sql` | Contas de utilizador e sessões: sequência `ID_conta`, tabelas `Conta_Utilizador` e `Sessao_Utilizador`, 2 *views* (`v_conta_credenciais`, `v_sessao_ativa`) e 4 procedures (`registrar_conta`, `registar_acesso_conta`, `iniciar_sessao`, `terminar_sessao`). | Usado só pelo `ContaDAO` (login, registo e sessões). |
 | `Tabelas_de_Historico.sql` | 15 tabelas `auditoria_*`. | Indireta: preenchidas pelos *triggers* de auditoria quando se altera ou elimina um registo. |
 | `main.sql`, `apagarAtualizar.sql`, `conceder_privilegios.sql` | Correm os scripts corrigidos pela ordem certa; apagam e recriam tudo; dão o privilégio CREATE VIEW. O antigo `correcoes.sql` foi removido: as correções passaram para `Triggers.sql` e `procedures.sql` (marcadas com `NOTA`). | Correções aplicadas em 21-10-2026: 0 objetos inválidos e as 39 *views* criadas. |
 | `calculoEspacoPorAtributo.sql` | Bloco PL/SQL que estima o espaço em disco por atributo e por tabela, para uma projeção de linhas. | Nenhuma (estudo académico). |
 | `relatorio_calculo2.txt` | Saída do estudo anterior (SQL*Plus). | Nenhuma. |
+
+> [!tip] Onde cada script é chamado
+> Para saber, objeto a objeto, que classe Java (ficheiro e linha) usa cada script, veja o [§14.10](#14.10%20Mapa%20para%20a%20defesa%20—%20onde%20cada%20script%20SQL%20é%20usado%20no%20Java).
 
 **Importância:** fundamental para compreender as regras de negócio. **Estado:** os scripts existem; o estado da sua aplicação na BD está descrito no [§14.8](#14.8%20Estado%20real%20da%20base%20de%20dados).
 
@@ -2933,6 +2937,210 @@ O Java não executa nenhum `INSERT`, `UPDATE` ou `DELETE`: as leituras vêm das 
 9. `correcoes.sql` (corrige os objetos inválidos e cria as *views*)
 
 O único procedimento documentado é o de `correcoes.sql`, a partir da pasta `database/`: `sqlplus <utilizador>@//192.168.64.4:1521/XE @correcoes.sql`.
+
+### 14.10 Mapa para a defesa — onde cada script SQL é usado no Java
+
+> [!tip] Como usar este mapa no dia da defesa
+> Quando perguntarem "onde é que o Java chama esta procedure / view / função?":
+> 1. Procure o nome do objeto nas tabelas abaixo (Ctrl+F).
+> 2. Abra o ficheiro indicado na coluna **Classe Java** e salte para a linha (no IntelliJ/VS Code: `Ctrl+G` / `Cmd+L`).
+> 3. Se quiserem ver a definição SQL, abra o script em `database/` na linha indicada.
+>
+> **Regra de ouro:** o Java só fala com a base de dados dentro da pasta `backend/src/main/java/com/turismo/api/dao/` (os DAOs). Nenhuma outra classe escreve SQL, exceto `ConstraintCatalog` e `SchemaDAO`, que leem o dicionário do Oracle.
+>
+> Os números de linha são de 02-11-2026; se o código mudar, procure pelo nome do objeto.
+
+**Percurso de uma chamada, do ecrã até ao script:**
+
+```
+Ecrã (frontend/.../modules/Modules.java)
+  → ApiClient (pedido HTTP, ex.: POST /api/destinos)
+    → TurismoApiServer (escolhe o handler pela rota, linhas 81–102)
+      → DestinoHandler (valida os dados)
+        → DestinoDAO.addDestino()            ← aqui está o nome da procedure
+          → BaseDAO.callForNewId()
+            → PlSqlOutput.callProcedure()   ← monta "{call registrar_destino(?, ?, …)}"
+              → Oracle: procedure registrar_destino (database/procedures.sql:497)
+```
+
+**As três maneiras de o Java chamar a BD** (todas em `backend/src/main/java/com/turismo/api/dao/`):
+
+| O que é chamado | Como o Java o chama | Onde está o código |
+|---|---|---|
+| **View** (`views.sql`, `contas.sql`) | `SELECT * FROM V_LISTA_… WHERE …` | constante `SELECT` no topo de cada DAO; `RelatorioDAO.read()` para os relatórios |
+| **Procedure** (`procedures.sql`, `contas.sql`) | `{call nome(?, ?, …)}` e leitura do `DBMS_OUTPUT` | `PlSqlOutput.execute()` — `PlSqlOutput.java:75`; atalhos `call`, `callForNewId`, `callIfFound`, `undo` em `BaseDAO.java:72–100` |
+| **Função** (`functions.sql`) | `{? = call nome(?, …)}` | `BaseDAO.callStringFunction()` — `BaseDAO.java:105`; `Valor_Em_Dolar` é chamada dentro de um `SELECT` |
+
+#### 14.10.1 Resumo: cada script e as classes que o usam
+
+| Script (`database/`) | O Java chama-o? | Classes Java que o usam |
+|---|---|---|
+| `views.sql` (39 views) | **Sim** — todas as leituras | os 15 DAOs de entidade (`v_lista_*`), `RelatorioDAO` (24 relatórios), `DashboardDAO` (10 delas), `SchemaDAO` (verifica se existem) |
+| `procedures.sql` (43 procedures) | **Sim** — quase todas as escritas | os 15 DAOs de entidade (ver §14.10.3) |
+| `functions.sql` (13 funções) | **Sim** — 7 diretamente, 5 dentro de views, 1 dentro de uma procedure | `TuristaDAO`, `ReservaDAO`, `PagamentoDAO`, `DestinoDAO` |
+| `contas.sql` (2 views + 4 procedures) | **Sim** — login e sessões | `ContaDAO`, usado por `AuthHandler` e `SessionService` |
+| `tabelas.sql` | Não diretamente | Indireto: `ConstraintCatalog` lê as restrições `CHECK` destas tabelas (via `user_constraints`); os *models* espelham as colunas |
+| `Sequences.sql` | Não | Indireto: usadas **dentro** das procedures `registrar_*` e das funções `Insere_Turista` / `Concluir_Pagamento`; `IdGenerator` só guarda os prefixos (`DT-`, `AT-`…) |
+| `Triggers.sql` | Não (disparam sozinhos) | Indireto: disparam quando uma procedure escreve; os erros `ORA-20xxx` que lançam são traduzidos por `DbErrors` |
+| `Tabelas_de_Historico.sql` | Não | Indireto: preenchidas pelos *triggers* de auditoria |
+| `Index.sql` | Não | Nenhuma (só desempenho) |
+| `Inserts.sql`, `main.sql`, `apagarAtualizar.sql`, `conceder_privilegios.sql`, `calculoEspacoPorAtributo.sql` | Não | Nenhuma — correm-se à mão no SQL*Plus (`main.sql` corre os outros pela ordem certa) |
+
+#### 14.10.2 `views.sql` — leituras
+
+**Views de listagem (uma por módulo do ecrã).** Cada DAO tem no topo uma constante `SELECT * FROM V_LISTA_…`, usada por todos os métodos `getAll…`, `get…ById` e `get…By…`.
+
+| View | Linha em `views.sql` | Classe Java (ficheiro:linha) | Rota / ecrã |
+|---|---|---|---|
+| `v_lista_destinos` | 306 | `DestinoDAO.java:19` (e `:59` em `getDependencias`, aviso antes de eliminar) | `GET /api/destinos` — Destinos |
+| `v_lista_atracoes` | 318 | `AtracaoDAO.java:20` | `GET /api/atracoes` — Atrações |
+| `v_lista_alojamentos` | 335 | `AlojamentoDAO.java:20` | `GET /api/alojamentos` — Alojamentos |
+| `v_lista_tipos_alojamento` | 349 | `TipoAlojamentoDAO.java:17` | `GET /api/tipoAlojamentos` — Tipos de alojamento |
+| `v_lista_transportes` | 357 | `TransporteDAO.java:16` | `GET /api/transportes` — Transportes |
+| `v_lista_turistas` | 367 | `TuristaDAO.java:23` | `GET /api/turistas` — Turistas |
+| `v_lista_preferencias` | 376 | `TuristaPreferenciaDAO.java:16` | `GET /api/turistaPreferencias` — Preferências |
+| `v_lista_operadores` | 386 | `OperadorDAO.java:16` | `GET /api/operadores` — Operadores |
+| `v_lista_reservas` | 398 | `ReservaDAO.java:22` | `GET /api/reservas` — Reservas |
+| `v_lista_pagamentos` | 413 | `PagamentoDAO.java:21` (e `:67` em `valorEmDolar`) | `GET /api/pagamentos` — Pagamentos |
+| `v_lista_visitas` | 429 | `TuristaDestinoDAO.java:20` | `GET /api/turistaDestinos` — Visitas a destinos |
+| `v_lista_reserva_alojamentos` | 441 | `ReservaAlojamentoDAO.java:18` | `GET /api/reservaAlojamentos` |
+| `v_lista_operador_turistas` | 454 | `OperadorTuristaDAO.java:18` | `GET /api/operadorTuristas` |
+| `v_lista_operador_transportes` | 466 | `OperadorTransporteDAO.java:17` | `GET /api/operadorTransportes` |
+| `v_lista_operador_alojamentos` | 477 | `OperadorAlojamentoDAO.java:17` | `GET /api/operadorAlojamentos` |
+
+**Views de relatório e verificação (24).** Todas estão listadas, com a ordenação, no mapa `RelatorioDAO.VIEWS` (`RelatorioDAO.java:32–55`) e são lidas por `RelatorioDAO.read()` (`RelatorioDAO.java:69`), chamado pelo `RelatorioHandler` (rota `GET /api/relatorios/{nome_da_view}`, separador **Relatórios** do ecrã). As marcadas com **Painel** também aparecem no painel inicial através do `DashboardDAO` (`DashboardDAO.java:26–39`, rota `GET /api/dashboard`, ecrã `DashboardPage`).
+
+| View | Linha em `views.sql` | Linha em `RelatorioDAO.java` | Também no painel? |
+|---|---|---|---|
+| `v_atracoes_destino` | 24 | 32 | — |
+| `v_total_atracoes_destino` | 40 | 33 | **Painel** (`DashboardDAO.java:30`) |
+| `v_total_alojamentos_destino` | 50 | 34 | **Painel** (`DashboardDAO.java:31`) |
+| `v_alojamentos_detalhe` | 60 | 35 | — |
+| `v_media_avaliacao_alojamento` | 75 | 36 | — |
+| `v_reservas_detalhe` | 86 | 37 | — |
+| `v_reservas_ativas` | 99 | 38 | **Painel** (`DashboardDAO.java:29`) |
+| `v_reservas_alojamento` | 111 | 39 | — |
+| `v_total_pago_reserva` | 125 | 40 | — |
+| `v_recibos` | 137 | 41 | — |
+| `v_receita_mensal` | 152 | 42 | **Painel** (`DashboardDAO.java:27`) |
+| `v_receita_nacionalidade` | 162 | 43 | **Painel** (`DashboardDAO.java:28`) |
+| `v_turista_destinos` | 173 | 44 | — |
+| `v_turista_preferencias` | 185 | 45 | — |
+| `v_avaliacao_operador` | 195 | 46 | **Painel** (`DashboardDAO.java:32`) |
+| `v_operadores_alojamentos` | 206 | 47 | — |
+| `v_operadores_transportes` | 216 | 48 | — |
+| `v_transportes_disponiveis` | 227 | 49 | — |
+| `v_aud_pagamento_data_futura` | 237 | 50 | **Painel — verificação** (`DashboardDAO.java:36`) |
+| `v_aud_recibo_sem_concluido` | 248 | 51 | **Painel — verificação** (`DashboardDAO.java:37`) |
+| `v_reservas_sem_alojamento` | 260 | 52 | **Painel — verificação** (`DashboardDAO.java:38`) |
+| `v_reservas_sem_pagamento` | 272 | 53 | **Painel — verificação** (`DashboardDAO.java:39`) |
+| `v_alojamentos_acima_media` | 283 | 54 | — |
+| `v_turistas_sem_reserva` | 292 | 55 | — |
+
+> [!note] Verificação de que as views existem
+> `SchemaDAO.expectedViews()` (`SchemaDAO.java:29`) junta as 24 de relatório, as 15 de listagem (`SchemaDAO.java:19–23`) e as 2 de `contas.sql` (`SchemaDAO.java:26`), e `SchemaDAO.status()` compara com `user_views`. É chamado pelo `EstadoHandler` (`GET /api/estado`) e pelo `TurismoApiServer` no arranque (`TurismoApiServer.java:163`).
+
+#### 14.10.3 `procedures.sql` — escritas
+
+Todas passam por `PlSqlOutput.callProcedure()` (`PlSqlOutput.java:26`). Na coluna **Rota**, `{id}` é o código do registo.
+
+**Parte 1 — as 16 procedures do enunciado:**
+
+| Procedure | Linha em `procedures.sql` | Classe Java · método (ficheiro:linha) | Rota |
+|---|---|---|---|
+| `registrar_reserva` | 109 | `ReservaDAO.addReserva` (`ReservaDAO.java:51`) | `POST /api/reservas` |
+| `associar_alojamento_reserva` | 133 | `ReservaDAO.addReserva` (`ReservaDAO.java:56`) e `ReservaAlojamentoDAO.addReservaAlojamento` (`ReservaAlojamentoDAO.java:48`) | `POST /api/reservas`, `POST /api/reservaAlojamentos` |
+| `registrar_pagamento` | 154 | `PagamentoDAO.addPagamento` (`PagamentoDAO.java:44`) | `POST /api/pagamentos` |
+| `registrar_visita` | 188 | `TuristaDestinoDAO.addTuristaDestino` (`TuristaDestinoDAO.java:48`) | `POST /api/turistaDestinos` |
+| `registrar_atracao` | 211 | `AtracaoDAO.addAtracao` (`AtracaoDAO.java:48`) | `POST /api/atracoes` |
+| `definir_tipo_alojamento` | 235 | `TipoAlojamentoDAO.addTipoAlojamento` (`TipoAlojamentoDAO.java:37`) | `POST /api/tipoAlojamentos` |
+| `inserir_preferencia` | 252 | `TuristaPreferenciaDAO.addTuristaPreferencia` (`TuristaPreferenciaDAO.java:40`) | `POST /api/turistaPreferencias` |
+| `atualizar_pref_turista` | 273 | `TuristaPreferenciaDAO.updateTuristaPreferencia` (`TuristaPreferenciaDAO.java:46`) | `PUT /api/turistaPreferencias/…` |
+| `associar_operador_turista` | 301 | `OperadorTuristaDAO.addOperadorTurista` (`OperadorTuristaDAO.java:48`) | `POST /api/operadorTuristas` |
+| `associar_operador_transporte` | 319 | `OperadorTransporteDAO.addOperadorTransporte` (`OperadorTransporteDAO.java:47`) | `POST /api/operadorTransportes` |
+| `associar_operador_alojamento` | 337 | `OperadorAlojamentoDAO.addOperadorAlojamento` (`OperadorAlojamentoDAO.java:47`) | `POST /api/operadorAlojamentos` |
+| `cancelar_reserva` | 355 | `ReservaDAO.cancelarReserva` (`ReservaDAO.java:86`) | `POST /api/reservas/{id}/cancelar` (botão **Cancelar**) |
+| `alterar_horario_atracao` | 383 | `AtracaoDAO.addAtracao` (`AtracaoDAO.java:52`) — horário especial | `POST /api/atracoes` |
+| `alterar_datas_reserva` | 411 | `ReservaDAO.updateReserva` (`ReservaDAO.java:73`) | `PUT /api/reservas/{id}` |
+| `avaliar_alojamento` | 437 | `ReservaAlojamentoDAO.avaliar` (`ReservaAlojamentoDAO.java:55`) | `PUT /api/reservaAlojamentos/…` |
+| `avaliar_operador` | 462 | `OperadorTuristaDAO.avaliar` (`OperadorTuristaDAO.java:55`) | `PUT /api/operadorTuristas/…` |
+
+**Parte 2 — as 27 procedures de manutenção:**
+
+| Procedure | Linha em `procedures.sql` | Classe Java · método (ficheiro:linha) | Rota |
+|---|---|---|---|
+| `registrar_destino` | 497 | `DestinoDAO.addDestino` (`DestinoDAO.java:38`) | `POST /api/destinos` |
+| `atualizar_destino` | 519 | `DestinoDAO.updateDestino` (`DestinoDAO.java:44`) | `PUT /api/destinos/{id}` |
+| `eliminar_destino` | 546 | `DestinoDAO.deleteDestino` (`DestinoDAO.java:50`) | `DELETE /api/destinos/{id}` |
+| `registrar_alojamento` | 570 | `AlojamentoDAO.addAlojamento` (`AlojamentoDAO.java:43`) | `POST /api/alojamentos` |
+| `atualizar_alojamento` | 593 | `AlojamentoDAO.updateAlojamento` (`AlojamentoDAO.java:49`) | `PUT /api/alojamentos/{id}` |
+| `eliminar_alojamento` | 622 | `AlojamentoDAO.deleteAlojamento` (`AlojamentoDAO.java:55`) | `DELETE /api/alojamentos/{id}` |
+| `registrar_transporte` | 646 | `TransporteDAO.addTransporte` (`TransporteDAO.java:35`) | `POST /api/transportes` |
+| `atualizar_transporte` | 668 | `TransporteDAO.updateTransporte` (`TransporteDAO.java:41`) | `PUT /api/transportes/{id}` |
+| `eliminar_transporte` | 695 | `TransporteDAO.deleteTransporte` (`TransporteDAO.java:47`) | `DELETE /api/transportes/{id}` |
+| `registrar_operador` | 719 | `OperadorDAO.addOperador` (`OperadorDAO.java:35`) | `POST /api/operadores` |
+| `atualizar_operador` | 741 | `OperadorDAO.updateOperador` (`OperadorDAO.java:41`) | `PUT /api/operadores/{id}` |
+| `eliminar_operador` | 768 | `OperadorDAO.deleteOperador` (`OperadorDAO.java:47`) | `DELETE /api/operadores/{id}` |
+| `atualizar_atracao` | 793 | `AtracaoDAO.updateAtracao` (`AtracaoDAO.java:65`) | `PUT /api/atracoes/{id}` |
+| `eliminar_atracao` | 830 | `AtracaoDAO.deleteAtracao` (`AtracaoDAO.java:73`); também `AtracaoDAO.addAtracao` (`AtracaoDAO.java:55`) para desfazer se o horário especial falhar | `DELETE /api/atracoes/{id}` |
+| `alterar_turista_reserva` | 855 | `ReservaDAO.updateReserva` (`ReservaDAO.java:77`) | `PUT /api/reservas/{id}` |
+| `eliminar_reserva` | 878 | `ReservaDAO.deleteReserva` (`ReservaDAO.java:91`); também `ReservaDAO.addReserva` (`ReservaDAO.java:59`) para desfazer se a associação de um alojamento falhar | `DELETE /api/reservas/{id}` |
+| `atualizar_pagamento` | 904 | `PagamentoDAO.updatePagamento` (`PagamentoDAO.java:54`) | `PUT /api/pagamentos/{id}` |
+| `eliminar_pagamento` | 938 | `PagamentoDAO.deletePagamento` (`PagamentoDAO.java:73`) | `DELETE /api/pagamentos/{id}` |
+| `atualizar_tipo_alojamento` | 963 | `TipoAlojamentoDAO.updateTipoAlojamento` (`TipoAlojamentoDAO.java:43`) | `PUT /api/tipoAlojamentos/{tipo}` |
+| `eliminar_tipo_alojamento` | 986 | `TipoAlojamentoDAO.deleteTipoAlojamento` (`TipoAlojamentoDAO.java:48`) | `DELETE /api/tipoAlojamentos/{tipo}` |
+| `atualizar_turista` | 1010 | `TuristaDAO.updateTurista` (`TuristaDAO.java:68`) | `PUT /api/turistas/{id}` |
+| `remover_preferencia` | 1039 | `TuristaPreferenciaDAO.deleteTuristaPreferencia` (`TuristaPreferenciaDAO.java:51`) | `DELETE /api/turistaPreferencias/…` |
+| `remover_visita` | 1061 | `TuristaDestinoDAO.deleteTuristaDestino` (`TuristaDestinoDAO.java:53`) | `DELETE /api/turistaDestinos/…` |
+| `remover_alojamento_reserva` | 1086 | `ReservaAlojamentoDAO.deleteReservaAlojamento` (`ReservaAlojamentoDAO.java:61`) | `DELETE /api/reservaAlojamentos/…` |
+| `remover_operador_turista` | 1108 | `OperadorTuristaDAO.deleteOperadorTurista` (`OperadorTuristaDAO.java:61`) | `DELETE /api/operadorTuristas/…` |
+| `remover_operador_transporte` | 1130 | `OperadorTransporteDAO.deleteOperadorTransporte` (`OperadorTransporteDAO.java:53`) | `DELETE /api/operadorTransportes/…` |
+| `remover_operador_alojamento` | 1152 | `OperadorAlojamentoDAO.deleteOperadorAlojamento` (`OperadorAlojamentoDAO.java:53`) | `DELETE /api/operadorAlojamentos/…` |
+
+#### 14.10.4 `functions.sql` — funções
+
+| Função | Linha em `functions.sql` | Onde é usada | Rota |
+|---|---|---|---|
+| `Total_Pago_Reserva` | 8 | Dentro da view `v_lista_reservas` (`views.sql:406`) → lida por `ReservaDAO` (`ReservaDAO.java:103`, coluna `TOTAL_PAGO`) | `GET /api/reservas` |
+| `Capacidade_Alojamento` | 23 | Dentro da view `v_lista_alojamentos` (`views.sql:342`) → lida por `AlojamentoDAO` (`AlojamentoDAO.java:66`, coluna `CAP_ALOJAMENTO`) | `GET /api/alojamentos` |
+| `Media_Avaliacao_Alojamento` | 41 | Dentro da view `v_lista_alojamentos` (`views.sql:343`) → lida por `AlojamentoDAO` (`AlojamentoDAO.java:67`, coluna `MEDIA_AVALIACOES`) | `GET /api/alojamentos` |
+| `Media_Avaliacao_Operador` | 55 | Dentro da view `v_lista_operadores` (`views.sql:392`) → lida por `OperadorDAO` (`OperadorDAO.java:57`) | `GET /api/operadores` |
+| `Valor_Em_Dolar` | 69 | `PagamentoDAO.valorEmDolar` (`PagamentoDAO.java:67`), num `SELECT` | `GET /api/pagamentos/{id}/dolar?cotacao=64` |
+| `Retorna_Info_Destino` | 81 | `DestinoDAO.getInfo` (`DestinoDAO.java:79`) | `GET /api/destinos/{id}/info` (botão de informação do destino) |
+| `Lista_Atracoes_Destino` | 106 | `DestinoDAO.getInfo` (`DestinoDAO.java:80`) | `GET /api/destinos/{id}/info` |
+| `Reserva_Completa` | 140 | Dentro da view `v_lista_reservas` (`views.sql:407`) → lida por `ReservaDAO` (`ReservaDAO.java:104`, coluna `ESTADO_COMPLETUDE`) | `GET /api/reservas` |
+| `Insere_Turista` | 166 | `TuristaDAO.addTurista` (`TuristaDAO.java:56`) | `POST /api/turistas` |
+| `Regista_Visita` | 190 | Dentro da procedure `registrar_visita` (`procedures.sql:195`) → chamada por `TuristaDestinoDAO` | `POST /api/turistaDestinos` |
+| `Concluir_Pagamento` | 233 | `PagamentoDAO.concluirPagamento` (`PagamentoDAO.java:61`) | `POST /api/pagamentos/{id}/concluir` (botão **Concluir**) |
+| `Actualiza_Status_Reserva` | 278 | `ReservaDAO.updateReserva` (`ReservaDAO.java:78`) | `PUT /api/reservas/{id}` |
+| `Elimina_Turista` | 302 | `TuristaDAO.deleteTurista` (`TuristaDAO.java:78`) | `DELETE /api/turistas/{id}` |
+
+#### 14.10.5 `contas.sql` — contas e sessões (login)
+
+Todos os objetos são usados só pela classe `ContaDAO` (`backend/.../dao/ContaDAO.java`). Quem chama o `ContaDAO` é o `AuthHandler` (rotas `/api/auth/...`) e o `SessionService` (verifica o *token* em cada pedido protegido, através do `AuthFilter`).
+
+| Objeto | Tipo | Linha em `contas.sql` | Classe Java · método (ficheiro:linha) | Quem chama | Rota |
+|---|---|---|---|---|---|
+| `v_conta_credenciais` | View | 71 | `ContaDAO.getCredenciais` e `ContaDAO.nomesComBase` (`ContaDAO.java:33` e `:52`) | `AuthHandler.login` (`AuthHandler.java:166`) e `AuthHandler.register` (`AuthHandler.java:144`, sugestões de nome de utilizador) | `POST /api/auth/sessao`, `POST /api/auth/registo` |
+| `v_sessao_ativa` | View | 82 | `ContaDAO.getSessaoAtiva` (`ContaDAO.java:34`) | `SessionService.find` (`SessionService.java:75`) | todas as rotas protegidas, `GET /api/auth/sessao` |
+| `registrar_conta` | Procedure | 103 | `ContaDAO.registrarConta` (`ContaDAO.java:63`) | `AuthHandler.register` (`AuthHandler.java:124`) | `POST /api/auth/registo` |
+| `registar_acesso_conta` | Procedure | 129 | `ContaDAO.registarAcesso` (`ContaDAO.java:68`) | `AuthHandler.login` (`AuthHandler.java:176` e `:179`) | `POST /api/auth/sessao` |
+| `iniciar_sessao` | Procedure | 160 | `ContaDAO.iniciarSessao` (`ContaDAO.java:73`) | `AuthHandler.login` (`AuthHandler.java:182`) | `POST /api/auth/sessao` |
+| `terminar_sessao` | Procedure | 181 | `ContaDAO.terminarSessao` (`ContaDAO.java:78`) | `AuthHandler.logout` (`AuthHandler.java:199`) | `DELETE /api/auth/sessao` |
+
+#### 14.10.6 Scripts que o Java não chama (mas que influenciam o Java)
+
+| Script | Ligação indireta ao Java | Onde ver no Java |
+|---|---|---|
+| `tabelas.sql` | As restrições `CHECK` (ex.: valores permitidos de `estado`) são lidas do Oracle e usadas para preencher as listas de escolha e explicar erros. | `ConstraintCatalog.java:44` e `:96` (consulta `user_constraints`); usado por `DominioHandler` (`GET /api/dominios`), `BaseHandler.java:153` e `DbErrors.java:62` |
+| `Sequences.sql` | Geram os números dos códigos (`DT-004`…). São usadas **dentro** do PL/SQL: `procedures.sql:118, 166, 221, 505, 579, 654, 727`, `functions.sql:173` (`ID_turista`), `functions.sql:253` (`ID_recibo`), `contas.sql:115` (`ID_conta`). | `IdGenerator.java:13–20` (só os prefixos) e `PlSqlOutput.callProcedureForNewId` (`PlSqlOutput.java:50`), que lê o código gerado da mensagem da procedure |
+| `Triggers.sql` | Disparam sozinhos quando uma procedure faz `INSERT`/`UPDATE`/`DELETE`. Os de validação lançam `RAISE_APPLICATION_ERROR` (`ORA-20xxx`). | `DbErrors.java:21` e `:44` traduzem esses erros na mensagem que aparece no ecrã |
+| `Tabelas_de_Historico.sql` | Tabelas `auditoria_*`, preenchidas pelos *triggers* de auditoria. | Nenhuma classe as lê |
+| `Index.sql` | Só desempenho. | — |
+| `Inserts.sql` | Dados de exemplo. | — |
+| `main.sql`, `apagarAtualizar.sql`, `conceder_privilegios.sql` | Instalação: correm-se no SQL*Plus a partir de `database/`. | — |
+| `calculoEspacoPorAtributo.sql` | Estudo académico de espaço em disco. | — |
+
 
 ---
 

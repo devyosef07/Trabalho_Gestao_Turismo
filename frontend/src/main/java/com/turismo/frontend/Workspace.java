@@ -10,6 +10,7 @@ import com.turismo.frontend.modules.Lookups;
 import com.turismo.frontend.modules.ModuleSpec;
 import com.turismo.frontend.modules.Modules;
 import com.turismo.frontend.modules.Page;
+import com.turismo.frontend.pages.AboutPage;
 import com.turismo.frontend.pages.AccountPage;
 import com.turismo.frontend.pages.DashboardPage;
 import com.turismo.frontend.ui.async.Task;
@@ -23,6 +24,7 @@ import com.turismo.frontend.ui.theme.Icons;
 import com.turismo.frontend.ui.theme.Theme;
 import org.kordamp.ikonli.materialdesign2.MaterialDesignC;
 import org.kordamp.ikonli.materialdesign2.MaterialDesignD;
+import org.kordamp.ikonli.materialdesign2.MaterialDesignI;
 import org.kordamp.ikonli.materialdesign2.MaterialDesignV;
 import org.kordamp.ikonli.materialdesign2.MaterialDesignW;
 
@@ -55,6 +57,7 @@ public class Workspace extends JPanel {
 
     public static final String DASHBOARD = "dashboard";
     public static final String ACCOUNT = "conta";
+    public static final String ABOUT = "sobre";
     private static final int HEALTH_INTERVAL_MS = 60_000;
 
     private final ApiClient api;
@@ -136,20 +139,34 @@ public class Workspace extends JPanel {
     }
 
     private JComponent buildFooter() {
+        JButton about = new JButton("Sobre o projeto");
+        about.setName("sobre");
+        about.putClientProperty(com.formdev.flatlaf.FlatClientProperties.BUTTON_TYPE,
+                com.formdev.flatlaf.FlatClientProperties.BUTTON_TYPE_BORDERLESS);
+        about.setHorizontalAlignment(JButton.LEFT);
+        about.setIcon(Icons.of(MaterialDesignI.INFORMATION_OUTLINE, 16, () -> Theme.p().sidebarText));
+        about.setToolTipText("Integrantes do grupo, tecnologias e comunicação com a base de dados");
+        about.addActionListener(e -> navigate(ABOUT));
         JButton theme = new JButton();
         theme.setName("tema");
         theme.putClientProperty(com.formdev.flatlaf.FlatClientProperties.BUTTON_TYPE,
                 com.formdev.flatlaf.FlatClientProperties.BUTTON_TYPE_BORDERLESS);
         theme.setHorizontalAlignment(JButton.LEFT);
         updateThemeButton(theme);
+        about.setForeground(Theme.p().sidebarText);
         theme.addActionListener(e -> Theme.setDark(!Theme.isDark()));
-        themeListener = () -> updateThemeButton(theme);
+        themeListener = () -> {
+            updateThemeButton(theme);
+            about.setForeground(Theme.p().sidebarText);
+        };
         Theme.addListener(themeListener);
         JPanel p = new JPanel();
         p.setOpaque(false);
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+        about.setAlignmentX(Component.LEFT_ALIGNMENT);
         theme.setAlignmentX(Component.LEFT_ALIGNMENT);
         account.setAlignmentX(Component.LEFT_ALIGNMENT);
+        p.add(about);
         p.add(theme);
         p.add(javax.swing.Box.createVerticalStrut(6));
         p.add(account);
@@ -191,6 +208,8 @@ public class Workspace extends JPanel {
                 page = dashboard;
             } else if (ACCOUNT.equals(id)) {
                 page = new AccountPage(auth, onLogout);
+            } else if (ABOUT.equals(id)) {
+                page = new AboutPage();
             } else {
                 page = new CrudPage(specs.get(id), lookups);
             }
