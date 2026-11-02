@@ -1936,7 +1936,7 @@ FieldSpec.domain("statusPagamento", "Estado", "PAGAMENTO.STATUS_PAGAMENTO").requ
 | `preferencias` | `/turistaPreferencias` | `idTurista`, `preferencia` | — | `v_turista_preferencias` |
 | `operadores` | `/operadores` | `idOperador` | — | `v_avaliacao_operador` |
 | `reservas` | `/reservas` | `idReserva` | Cancelar reserva | `v_reservas_detalhe`, `v_reservas_ativas`, `v_total_pago_reserva`, `v_reservas_sem_alojamento`, `v_reservas_sem_pagamento` |
-| `pagamentos` | `/pagamentos` | `idPagamento` | Concluir e emitir recibo; Converter para dólares | `v_recibos`, `v_receita_mensal`, `v_aud_pagamento_data_futura`, `v_aud_recibo_sem_concluido` |
+| `pagamentos` | `/pagamentos` | `idPagamento` | Concluir e emitir recibo; Converter para dólares | `v_recibos`, `v_receita_mensal` |
 | `visitas` | `/turistaDestinos` | `idDestino`, `idTurista`, `dataVisita` | — | `v_turista_destinos` |
 | `reservaAlojamentos` | `/reservaAlojamentos` | `idReserva`, `idAlojamento` | Editar = "Avaliar" | `v_reservas_alojamento` |
 | `operadorTuristas` | `/operadorTuristas` | `idOperador`, `idTurista` | Editar = "Avaliar" | `v_avaliacao_operador` |

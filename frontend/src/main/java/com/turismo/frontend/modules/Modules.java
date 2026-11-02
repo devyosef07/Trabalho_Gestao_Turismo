@@ -373,9 +373,7 @@ public final class Modules {
                         + "Esta ação não pode ser desfeita."
                         : "Esta ação não pode ser desfeita.")
                 .report("v_recibos", "Recibos emitidos", "Pagamentos que já têm recibo.")
-                .report("v_receita_mensal", "Receita mensal", "Total recebido em cada mês (pagamentos concluídos).")
-                .report("v_aud_pagamento_data_futura", "Pagamentos com data futura", "Verificação: não deve devolver linhas.")
-                .report("v_aud_recibo_sem_concluido", "Recibos sem conclusão", "Verificação: recibos em pagamentos não concluídos.");
+                .report("v_receita_mensal", "Receita mensal", "Total recebido em cada mês (pagamentos concluídos).");
     }
 
     public static ModuleSpec visitas() {

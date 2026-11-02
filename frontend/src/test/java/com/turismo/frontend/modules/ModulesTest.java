@@ -34,14 +34,15 @@ class ModulesTest {
     }
 
     @Test
-    void asVinteEQuatroViewsEstaoLigadasAModulos() {
+    void asVinteEDuasViewsEstaoLigadasAModulos() {
         Set<String> views = new HashSet<>();
         for (ModuleSpec m : Modules.all()) {
             for (ReportSpec r : m.reports()) {
                 views.add(r.view());
             }
         }
-        assertEquals(24, views.size(), views.toString());
+        // As duas views de auditoria de pagamentos só aparecem no painel (Integridade dos dados).
+        assertEquals(22, views.size(), views.toString());
     }
 
     @Test
